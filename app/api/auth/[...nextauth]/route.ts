@@ -1,18 +1,7 @@
-import NextAuth, { NextAuthOptions, Session } from 'next-auth'
+import NextAuth, { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import { sql } from '@vercel/postgres'
 import bcrypt from 'bcryptjs'
-import { JWT } from 'next-auth/jwt'
-
-// 拡張された Session 型を定義
-interface ExtendedSession extends Session {
-    user: {
-        id: string
-        name?: string | null
-        email?: string | null
-        image?: string | null
-    }
-}
 
 export const authOptions: NextAuthOptions = {
     providers: [
@@ -64,23 +53,17 @@ export const authOptions: NextAuthOptions = {
         signIn: '/auth/signin',
     },
     callbacks: {
-        async jwt({ token, user }: { token: JWT; user: any }) {
+        async jwt({ token, user }) {
             if (user) {
                 token.id = user.id
             }
             return token
         },
-        async session({ session, token }: { session: Session; token: JWT }): Promise<ExtendedSession> {
+        async session({ session, token }) {
             if (token && token.id) {
-                return {
-                    ...session,
-                    user: {
-                        ...session.user,
-                        id: token.id as string
-                    }
-                } as ExtendedSession
+                session.user.id = token.id as string
             }
-            return session as ExtendedSession
+            return session
         },
     },
 }
