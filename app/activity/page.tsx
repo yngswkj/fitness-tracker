@@ -272,6 +272,20 @@ export default function ActivityPage() {
             }))
     }
 
+    // Tooltip用の値フォーマット関数
+    const formatTooltipValue = (value: any): number => {
+        return typeof value === 'number' ? value : parseFloat(value) || 0
+    }
+
+    // 型安全なTooltipフォーマッター関数
+    const createTooltipFormatter = (unit: string, isInteger: boolean = true) => {
+        return (value: any) => {
+            const numValue = typeof value === 'number' ? value : parseFloat(value) || 0
+            const formatted = isInteger ? Math.round(numValue).toLocaleString() : numValue.toFixed(1)
+            return [formatted, unit]
+        }
+    }
+
     // 統計情報を計算する関数
     const calculateStats = (data: any[], key: string) => {
         // 生データから有効な値を抽出
@@ -626,7 +640,10 @@ export default function ActivityPage() {
                                                     tickCount={calculateTickCount(calculateYAxisDomain(stepsData, 'steps'))}
                                                     tickFormatter={(value) => Math.round(value).toLocaleString()}
                                                 />
-                                                <Tooltip formatter={(value) => [Math.round(value).toLocaleString(), 'Steps']} />
+                                                <Tooltip formatter={(value) => [
+                                                    typeof value === 'number' ? Math.round(value).toLocaleString() : '0',
+                                                    'Steps'
+                                                ]} />
                                                 <Area
                                                     type="monotone"
                                                     dataKey="steps"
@@ -687,7 +704,10 @@ export default function ActivityPage() {
                                                     tickCount={calculateTickCount(calculateYAxisDomain(heartRateData, 'heartRate'))}
                                                     tickFormatter={(value) => Math.round(value).toString()}
                                                 />
-                                                <Tooltip formatter={(value) => [Math.round(value), 'bpm']} />
+                                                <Tooltip formatter={(value) => [
+                                                    typeof value === 'number' ? Math.round(value) : Math.round(Number(value) || 0),
+                                                    'bpm'
+                                                ]} />
                                                 <Line
                                                     type="monotone"
                                                     dataKey="heartRate"
@@ -838,7 +858,7 @@ export default function ActivityPage() {
                                                     tickFormatter={(value) => Math.round(value * 10) / 10}
                                                 />
                                                 <Tooltip formatter={(value, name) => [
-                                                    Math.round(value * 10) / 10,
+                                                    typeof value === 'number' ? Math.round(value * 10) / 10 : Math.round(Number(value || 0) * 10) / 10,
                                                     name === 'weight' ? 'Weight (kg)' : 'Body Fat (%)'
                                                 ]} />
                                                 <Line
@@ -943,10 +963,13 @@ export default function ActivityPage() {
                                                     tickCount={calculateTickCount(calculateYAxisDomain(activityData, 'calories'))}
                                                     tickFormatter={(value) => Math.round(value).toLocaleString()}
                                                 />
-                                                <Tooltip formatter={(value, name) => [
-                                                    name === 'activeMinutes' ? Math.round(value) : Math.round(value).toLocaleString(),
-                                                    name === 'activeMinutes' ? 'Active Minutes' : 'Calories'
-                                                ]} />
+                                                <Tooltip formatter={(value, name) => {
+                                                    const numValue = typeof value === 'number' ? value : Number(value) || 0
+                                                    return [
+                                                        name === 'activeMinutes' ? Math.round(numValue) : Math.round(numValue).toLocaleString(),
+                                                        name === 'activeMinutes' ? 'Active Minutes' : 'Calories'
+                                                    ]
+                                                }} />
                                                 <Line
                                                     yAxisId="left"
                                                     type="monotone"
