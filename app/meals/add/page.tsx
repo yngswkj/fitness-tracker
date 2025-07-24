@@ -4,7 +4,8 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import MealForm from '@/app/components/MealForm'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Plus, Utensils } from 'lucide-react'
+import PageLayout from '@/app/components/PageLayout'
 
 interface MealData {
     meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack'
@@ -73,33 +74,30 @@ export default function AddMealPage() {
         router.back()
     }
 
-    return (
-        <div className="min-h-screen bg-gray-50">
-            {/* ヘッダー */}
-            <header className="bg-white shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center py-4">
-                        <button
-                            onClick={() => router.back()}
-                            className="mr-4 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
-                        >
-                            <ArrowLeft className="h-5 w-5" />
-                        </button>
-                        <h1 className="text-xl font-semibold text-gray-900">
-                            食事を記録
-                        </h1>
-                    </div>
-                </div>
-            </header>
+    const headerActions = (
+        <button
+            onClick={() => router.back()}
+            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+        >
+            <ArrowLeft className="h-5 w-5" />
+            戻る
+        </button>
+    )
 
-            {/* メインコンテンツ */}
-            <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    return (
+        <PageLayout
+            title="食事を記録"
+            description="新しい食事記録を追加します"
+            icon={Plus}
+            actions={headerActions}
+        >
+            <div className="max-w-2xl mx-auto">
                 <MealForm
                     onSubmit={handleSubmit}
                     onCancel={handleCancel}
                     isLoading={isSubmitting}
                 />
-            </main>
-        </div>
+            </div>
+        </PageLayout>
     )
 }

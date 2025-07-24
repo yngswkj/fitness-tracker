@@ -4,7 +4,8 @@ import { useState, useEffect } from 'react'
 import { useRouter, useParams } from 'next/navigation'
 import { useSession } from 'next-auth/react'
 import MealForm from '@/app/components/MealForm'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Edit, Utensils } from 'lucide-react'
+import PageLayout from '@/app/components/PageLayout'
 
 interface MealData {
     meal_type: 'breakfast' | 'lunch' | 'dinner' | 'snack'
@@ -142,27 +143,24 @@ export default function EditMealPage() {
         )
     }
 
-    return (
-        <div className="min-h-screen bg-gray-50">
-            {/* ヘッダー */}
-            <header className="bg-white shadow-sm">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    <div className="flex items-center py-4">
-                        <button
-                            onClick={() => router.push('/meals')}
-                            className="mr-4 p-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
-                        >
-                            <ArrowLeft className="h-5 w-5" />
-                        </button>
-                        <h1 className="text-xl font-semibold text-gray-900">
-                            食事記録を編集
-                        </h1>
-                    </div>
-                </div>
-            </header>
+    const headerActions = (
+        <button
+            onClick={() => router.push('/meals')}
+            className="flex items-center gap-2 px-4 py-2 text-gray-600 hover:text-gray-900 hover:bg-gray-100 rounded-lg"
+        >
+            <ArrowLeft className="h-5 w-5" />
+            戻る
+        </button>
+    )
 
-            {/* メインコンテンツ */}
-            <main className="max-w-2xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    return (
+        <PageLayout
+            title="食事記録を編集"
+            description="既存の食事記録を編集します"
+            icon={Edit}
+            actions={headerActions}
+        >
+            <div className="max-w-2xl mx-auto">
                 <MealForm
                     onSubmit={handleSubmit}
                     onCancel={handleCancel}
@@ -170,7 +168,7 @@ export default function EditMealPage() {
                     isEditing={true}
                     isLoading={isSubmitting}
                 />
-            </main>
-        </div>
+            </div>
+        </PageLayout>
     )
 }

@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
-import Navigation from '../components/Navigation'
+import PageLayout from '../components/PageLayout'
 import {
     LineChart,
     Line,
@@ -453,593 +453,586 @@ export default function ActivityPage() {
 
     const chartData = formatChartData()
 
+    const headerActions = (
+        <>
+            <select
+                value={selectedPeriod}
+                onChange={(e) => handleGlobalPeriodChange(e.target.value)}
+                className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            >
+                <option value="7">Last 7 days</option>
+                <option value="14">Last 14 days</option>
+                <option value="30">Last 30 days</option>
+                <option value="60">Last 60 days</option>
+                <option value="90">Last 90 days</option>
+                <option value="180">Last 180 days</option>
+                <option value="365">Last 365 days</option>
+            </select>
+            <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync Now'}
+            </button>
+        </>
+    )
+
     return (
-        <div className="min-h-screen bg-gray-50">
-            <Navigation />
-            <div className="py-8">
-                <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-                    {/* Header */}
-                    <div className="mb-8">
-                        <div className="flex justify-between items-center">
-                            <div>
-                                <h1 className="text-3xl font-bold text-gray-900 flex items-center gap-3">
-                                    <Activity className="w-8 h-8 text-blue-600" />
-                                    Activity Dashboard
-                                </h1>
-                                <p className="text-gray-600 mt-2">Track your fitness data from Fitbit</p>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <select
-                                    value={selectedPeriod}
-                                    onChange={(e) => handleGlobalPeriodChange(e.target.value)}
-                                    className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                >
-                                    <option value="7">Last 7 days</option>
-                                    <option value="14">Last 14 days</option>
-                                    <option value="30">Last 30 days</option>
-                                    <option value="60">Last 60 days</option>
-                                    <option value="90">Last 90 days</option>
-                                    <option value="180">Last 180 days</option>
-                                    <option value="365">Last 365 days</option>
-                                </select>
-                                <button
-                                    onClick={handleSync}
-                                    disabled={syncing}
-                                    className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                    <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                                    {syncing ? 'Syncing...' : 'Sync Now'}
-                                </button>
-                            </div>
+        <PageLayout
+            title="Activity Dashboard"
+            description="Track your fitness data from Fitbit"
+            icon={Activity}
+            actions={headerActions}
+        >
+
+            {/* Sync Status Card */}
+            {syncStatus && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
+                    <div className="flex items-center justify-between mb-4">
+                        <h2 className="text-xl font-semibold text-gray-900">Sync Status</h2>
+                        <div className="flex items-center gap-2">
+                            {getHealthScoreIcon(syncStatus.healthScore.status)}
+                            <span className={`font-semibold ${getHealthScoreColor(syncStatus.healthScore.overall)}`}>
+                                {syncStatus.healthScore.overall}/100
+                            </span>
                         </div>
                     </div>
 
-                    {/* Sync Status Card */}
-                    {syncStatus && (
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6 mb-8">
-                            <div className="flex items-center justify-between mb-4">
-                                <h2 className="text-xl font-semibold text-gray-900">Sync Status</h2>
-                                <div className="flex items-center gap-2">
-                                    {getHealthScoreIcon(syncStatus.healthScore.status)}
-                                    <span className={`font-semibold ${getHealthScoreColor(syncStatus.healthScore.overall)}`}>
-                                        {syncStatus.healthScore.overall}/100
-                                    </span>
-                                </div>
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-blue-600">{syncStatus.summary.daysWithSteps}</div>
-                                    <div className="text-sm text-gray-600">Days with Steps</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-green-600">{syncStatus.summary.daysWithSleep}</div>
-                                    <div className="text-sm text-gray-600">Days with Sleep</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-red-600">{syncStatus.summary.daysWithHeartRate}</div>
-                                    <div className="text-sm text-gray-600">Days with Heart Rate</div>
-                                </div>
-                                <div className="text-center">
-                                    <div className="text-2xl font-bold text-orange-600">{syncStatus.errors.total}</div>
-                                    <div className="text-sm text-gray-600">Recent Errors</div>
-                                </div>
-                            </div>
-
-                            {syncStatus.healthScore.recommendations.length > 0 && (
-                                <div className="bg-blue-50 rounded-lg p-4">
-                                    <h3 className="font-medium text-blue-900 mb-2">Recommendations</h3>
-                                    <ul className="space-y-1">
-                                        {syncStatus.healthScore.recommendations.map((rec, index) => (
-                                            <li key={index} className="text-sm text-blue-800 flex items-start gap-2">
-                                                <span className="w-1 h-1 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
-                                                {rec}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                </div>
-                            )}
+                    <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-4">
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-blue-600">{syncStatus.summary.daysWithSteps}</div>
+                            <div className="text-sm text-gray-600">Days with Steps</div>
                         </div>
-                    )}
-
-                    {/* Summary Cards */}
-                    {syncStatus && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Average Steps</p>
-                                        <p className="text-2xl font-bold text-gray-900">{syncStatus.summary.averageSteps.toLocaleString()}</p>
-                                    </div>
-                                    <Footprints className="w-8 h-8 text-blue-600" />
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Average Sleep</p>
-                                        <p className="text-2xl font-bold text-gray-900">{syncStatus.summary.averageSleepHours}h</p>
-                                    </div>
-                                    <Moon className="w-8 h-8 text-purple-600" />
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Data Completeness</p>
-                                        <p className="text-2xl font-bold text-gray-900">
-                                            {Math.round((syncStatus.summary.daysWithSteps / syncStatus.summary.totalDays) * 100)}%
-                                        </p>
-                                    </div>
-                                    <TrendingUp className="w-8 h-8 text-green-600" />
-                                </div>
-                            </div>
-
-                            <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                                <div className="flex items-center justify-between">
-                                    <div>
-                                        <p className="text-sm font-medium text-gray-600">Last Sync</p>
-                                        <p className="text-sm font-bold text-gray-900">
-                                            {syncStatus.summary.lastSync ?
-                                                new Date(syncStatus.summary.lastSync).toLocaleDateString('ja-JP') : 'Never'}
-                                        </p>
-                                    </div>
-                                    <Calendar className="w-8 h-8 text-gray-600" />
-                                </div>
-                            </div>
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-green-600">{syncStatus.summary.daysWithSleep}</div>
+                            <div className="text-sm text-gray-600">Days with Sleep</div>
                         </div>
-                    )}
-
-                    {/* Charts Grid */}
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-                        {/* Steps Chart */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                    <Footprints className="w-5 h-5 text-blue-600" />
-                                    Daily Steps
-                                </h3>
-                                <select
-                                    value={chartPeriods.steps}
-                                    onChange={(e) => setChartPeriods(prev => ({ ...prev, steps: e.target.value }))}
-                                    className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                >
-                                    {periodOptions.map(option => (
-                                        <option key={option.value} value={option.value}>{option.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {(() => {
-                                const stepsData = getFilteredChartData('steps')
-                                const stats = calculateStats(stepsData, 'steps')
-                                return (
-                                    <>
-                                        <div className="grid grid-cols-3 gap-4 mb-4 text-center">
-                                            <div>
-                                                <div className="text-sm text-gray-600">平均</div>
-                                                <div className="text-lg font-semibold text-blue-600">{stats.avg.toLocaleString()}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-sm text-gray-600">最大</div>
-                                                <div className="text-lg font-semibold text-green-600">{stats.max.toLocaleString()}</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-sm text-gray-600">最小</div>
-                                                <div className="text-lg font-semibold text-orange-600">{stats.min.toLocaleString()}</div>
-                                            </div>
-                                        </div>
-                                        <ResponsiveContainer width="100%" height={300}>
-                                            <AreaChart data={stepsData}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                                <XAxis dataKey="date" />
-                                                <YAxis
-                                                    domain={calculateYAxisDomain(stepsData, 'steps')}
-                                                    tickCount={calculateTickCount(calculateYAxisDomain(stepsData, 'steps'))}
-                                                    tickFormatter={(value) => Math.round(Number(value)).toLocaleString()}
-                                                />
-                                                <Tooltip formatter={(value) => [
-                                                    typeof value === 'number' ? Math.round(value).toLocaleString() : '0',
-                                                    'Steps'
-                                                ]} />
-                                                <Area
-                                                    type="monotone"
-                                                    dataKey="steps"
-                                                    stroke="#2563eb"
-                                                    fill="#3b82f6"
-                                                    fillOpacity={0.3}
-                                                />
-                                            </AreaChart>
-                                        </ResponsiveContainer>
-                                    </>
-                                )
-                            })()}
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-red-600">{syncStatus.summary.daysWithHeartRate}</div>
+                            <div className="text-sm text-gray-600">Days with Heart Rate</div>
                         </div>
-
-                        {/* Heart Rate Chart */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                    <Heart className="w-5 h-5 text-red-600" />
-                                    Resting Heart Rate
-                                </h3>
-                                <select
-                                    value={chartPeriods.heartRate}
-                                    onChange={(e) => setChartPeriods(prev => ({ ...prev, heartRate: e.target.value }))}
-                                    className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                >
-                                    {periodOptions.map(option => (
-                                        <option key={option.value} value={option.value}>{option.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {(() => {
-                                const heartRateData = getFilteredChartData('heartRate')
-                                const stats = calculateStats(heartRateData, 'heartRate')
-                                return (
-                                    <>
-                                        <div className="grid grid-cols-3 gap-4 mb-4 text-center">
-                                            <div>
-                                                <div className="text-sm text-gray-600">平均</div>
-                                                <div className="text-lg font-semibold text-red-600">{stats.avg} bpm</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-sm text-gray-600">最大</div>
-                                                <div className="text-lg font-semibold text-green-600">{stats.max} bpm</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-sm text-gray-600">最小</div>
-                                                <div className="text-lg font-semibold text-orange-600">{stats.min} bpm</div>
-                                            </div>
-                                        </div>
-                                        <ResponsiveContainer width="100%" height={300}>
-                                            <LineChart data={heartRateData}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                                <XAxis dataKey="date" />
-                                                <YAxis
-                                                    domain={calculateYAxisDomain(heartRateData, 'heartRate')}
-                                                    tickCount={calculateTickCount(calculateYAxisDomain(heartRateData, 'heartRate'))}
-                                                    tickFormatter={(value) => Math.round(Number(value)).toString()}
-                                                />
-                                                <Tooltip formatter={(value) => [
-                                                    typeof value === 'number' ? Math.round(value) : Math.round(Number(value) || 0),
-                                                    'bpm'
-                                                ]} />
-                                                <Line
-                                                    type="monotone"
-                                                    dataKey="heartRate"
-                                                    stroke="#dc2626"
-                                                    strokeWidth={2}
-                                                    dot={{ fill: '#dc2626' }}
-                                                />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </>
-                                )
-                            })()}
-                        </div>
-
-                        {/* Sleep Chart */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                    <Moon className="w-5 h-5 text-purple-600" />
-                                    Sleep Hours
-                                </h3>
-                                <select
-                                    value={chartPeriods.sleep}
-                                    onChange={(e) => setChartPeriods(prev => ({ ...prev, sleep: e.target.value }))}
-                                    className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                >
-                                    {periodOptions.map(option => (
-                                        <option key={option.value} value={option.value}>{option.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {(() => {
-                                const sleepData = getFilteredChartData('sleep')
-                                const stats = calculateStats(sleepData, 'sleepHours')
-                                return (
-                                    <>
-                                        <div className="grid grid-cols-3 gap-4 mb-4 text-center">
-                                            <div>
-                                                <div className="text-sm text-gray-600">平均</div>
-                                                <div className="text-lg font-semibold text-purple-600">{stats.avg}h</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-sm text-gray-600">最大</div>
-                                                <div className="text-lg font-semibold text-green-600">{stats.max}h</div>
-                                            </div>
-                                            <div>
-                                                <div className="text-sm text-gray-600">最小</div>
-                                                <div className="text-lg font-semibold text-orange-600">{stats.min}h</div>
-                                            </div>
-                                        </div>
-                                        <ResponsiveContainer width="100%" height={300}>
-                                            <BarChart data={sleepData}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                                <XAxis dataKey="date" />
-                                                <YAxis
-                                                    domain={calculateYAxisDomain(sleepData, 'sleepHours')}
-                                                    tickCount={calculateTickCount(calculateYAxisDomain(sleepData, 'sleepHours'))}
-                                                    tickFormatter={(value) => typeof value === 'number' ? value.toFixed(1) : '0'}
-                                                />
-                                                <Tooltip formatter={(value) => [
-                                                    typeof value === 'number' ? value.toFixed(1) : '0',
-                                                    'Hours'
-                                                ]} />
-                                                <Bar dataKey="sleepHours" fill="#7c3aed" />
-                                            </BarChart>
-                                        </ResponsiveContainer>
-                                    </>
-                                )
-                            })()}
-                        </div>
-
-                        {/* Weight Chart */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                    <Scale className="w-5 h-5 text-indigo-600" />
-                                    Weight & Body Fat
-                                </h3>
-                                <select
-                                    value={chartPeriods.weight}
-                                    onChange={(e) => setChartPeriods(prev => ({ ...prev, weight: e.target.value }))}
-                                    className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                >
-                                    {periodOptions.map(option => (
-                                        <option key={option.value} value={option.value}>{option.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {(() => {
-                                const weightData = getFilteredChartData('weight')
-                                const weightStats = calculateStats(weightData, 'weight')
-                                const bodyFatStats = calculateStats(weightData, 'bodyFat')
-                                return (
-                                    <>
-                                        <div className="grid grid-cols-2 gap-6 mb-4">
-                                            <div>
-                                                <div className="text-sm text-gray-600 mb-2">体重 (kg)</div>
-                                                <div className="grid grid-cols-3 gap-2 text-center">
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">平均</div>
-                                                        <div className="text-sm font-semibold text-indigo-600">{weightStats.avg}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">最大</div>
-                                                        <div className="text-sm font-semibold text-green-600">{weightStats.max}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">最小</div>
-                                                        <div className="text-sm font-semibold text-orange-600">{weightStats.min}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="text-sm text-gray-600 mb-2">体脂肪率 (%)</div>
-                                                <div className="grid grid-cols-3 gap-2 text-center">
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">平均</div>
-                                                        <div className="text-sm font-semibold text-amber-600">{bodyFatStats.avg}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">最大</div>
-                                                        <div className="text-sm font-semibold text-red-600">{bodyFatStats.max}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">最小</div>
-                                                        <div className="text-sm font-semibold text-green-600">{bodyFatStats.min}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <ResponsiveContainer width="100%" height={300}>
-                                            <LineChart data={weightData}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                                <XAxis dataKey="date" />
-                                                <YAxis
-                                                    yAxisId="left"
-                                                    domain={calculateYAxisDomain(weightData, 'weight')}
-                                                    tickCount={calculateTickCount(calculateYAxisDomain(weightData, 'weight'))}
-                                                    tickFormatter={(value) => (Math.round(Number(value) * 10) / 10).toString()}
-                                                />
-                                                <YAxis
-                                                    yAxisId="right"
-                                                    orientation="right"
-                                                    domain={calculateYAxisDomain(weightData, 'bodyFat')}
-                                                    tickCount={calculateTickCount(calculateYAxisDomain(weightData, 'bodyFat'))}
-                                                    tickFormatter={(value) => (Math.round(Number(value) * 10) / 10).toString()}
-                                                />
-                                                <Tooltip formatter={(value, name) => [
-                                                    typeof value === 'number' ? Math.round(value * 10) / 10 : Math.round(Number(value || 0) * 10) / 10,
-                                                    name === 'weight' ? 'Weight (kg)' : 'Body Fat (%)'
-                                                ]} />
-                                                <Line
-                                                    yAxisId="left"
-                                                    type="monotone"
-                                                    dataKey="weight"
-                                                    stroke="#6366f1"
-                                                    strokeWidth={2}
-                                                    name="weight"
-                                                    dot={{ fill: '#6366f1' }}
-                                                />
-                                                <Line
-                                                    yAxisId="right"
-                                                    type="monotone"
-                                                    dataKey="bodyFat"
-                                                    stroke="#f59e0b"
-                                                    strokeWidth={2}
-                                                    name="bodyFat"
-                                                    dot={{ fill: '#f59e0b' }}
-                                                />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </>
-                                )
-                            })()}
-                        </div>
-
-                        {/* Activity Chart */}
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <div className="flex items-center justify-between mb-4">
-                                <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                                    <Zap className="w-5 h-5 text-orange-600" />
-                                    Active Minutes & Calories
-                                </h3>
-                                <select
-                                    value={chartPeriods.activity}
-                                    onChange={(e) => setChartPeriods(prev => ({ ...prev, activity: e.target.value }))}
-                                    className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                                >
-                                    {periodOptions.map(option => (
-                                        <option key={option.value} value={option.value}>{option.label}</option>
-                                    ))}
-                                </select>
-                            </div>
-
-                            {(() => {
-                                const activityData = getFilteredChartData('activity')
-                                const activeMinutesStats = calculateStats(activityData, 'activeMinutes')
-                                const caloriesStats = calculateStats(activityData, 'calories')
-                                return (
-                                    <>
-                                        <div className="grid grid-cols-2 gap-6 mb-4">
-                                            <div>
-                                                <div className="text-sm text-gray-600 mb-2">活動時間 (分)</div>
-                                                <div className="grid grid-cols-3 gap-2 text-center">
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">平均</div>
-                                                        <div className="text-sm font-semibold text-orange-600">{activeMinutesStats.avg}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">最大</div>
-                                                        <div className="text-sm font-semibold text-green-600">{activeMinutesStats.max}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">最小</div>
-                                                        <div className="text-sm font-semibold text-red-600">{activeMinutesStats.min}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                            <div>
-                                                <div className="text-sm text-gray-600 mb-2">消費カロリー</div>
-                                                <div className="grid grid-cols-3 gap-2 text-center">
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">平均</div>
-                                                        <div className="text-sm font-semibold text-green-600">{caloriesStats.avg.toLocaleString()}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">最大</div>
-                                                        <div className="text-sm font-semibold text-blue-600">{caloriesStats.max.toLocaleString()}</div>
-                                                    </div>
-                                                    <div>
-                                                        <div className="text-xs text-gray-500">最小</div>
-                                                        <div className="text-sm font-semibold text-purple-600">{caloriesStats.min.toLocaleString()}</div>
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </div>
-                                        <ResponsiveContainer width="100%" height={300}>
-                                            <LineChart data={activityData}>
-                                                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                                                <XAxis dataKey="date" />
-                                                <YAxis
-                                                    yAxisId="left"
-                                                    domain={calculateYAxisDomain(activityData, 'activeMinutes')}
-                                                    tickCount={calculateTickCount(calculateYAxisDomain(activityData, 'activeMinutes'))}
-                                                    tickFormatter={(value) => Math.round(Number(value)).toString()}
-                                                />
-                                                <YAxis
-                                                    yAxisId="right"
-                                                    orientation="right"
-                                                    domain={calculateYAxisDomain(activityData, 'calories')}
-                                                    tickCount={calculateTickCount(calculateYAxisDomain(activityData, 'calories'))}
-                                                    tickFormatter={(value) => Math.round(Number(value)).toLocaleString()}
-                                                />
-                                                <Tooltip formatter={(value, name) => {
-                                                    const numValue = typeof value === 'number' ? value : Number(value) || 0
-                                                    return [
-                                                        name === 'activeMinutes' ? Math.round(numValue) : Math.round(numValue).toLocaleString(),
-                                                        name === 'activeMinutes' ? 'Active Minutes' : 'Calories'
-                                                    ]
-                                                }} />
-                                                <Line
-                                                    yAxisId="left"
-                                                    type="monotone"
-                                                    dataKey="activeMinutes"
-                                                    stroke="#ea580c"
-                                                    strokeWidth={2}
-                                                    name="activeMinutes"
-                                                />
-                                                <Line
-                                                    yAxisId="right"
-                                                    type="monotone"
-                                                    dataKey="calories"
-                                                    stroke="#16a34a"
-                                                    strokeWidth={2}
-                                                    name="calories"
-                                                />
-                                            </LineChart>
-                                        </ResponsiveContainer>
-                                    </>
-                                )
-                            })()}
+                        <div className="text-center">
+                            <div className="text-2xl font-bold text-orange-600">{syncStatus.errors.total}</div>
+                            <div className="text-sm text-gray-600">Recent Errors</div>
                         </div>
                     </div>
 
-                    {/* Recent Errors */}
-                    {syncStatus && syncStatus.errors.recent.length > 0 && (
-                        <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
-                            <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
-                                <AlertCircle className="w-5 h-5 text-red-600" />
-                                Recent Sync Errors
-                            </h3>
-                            <div className="space-y-3">
-                                {syncStatus.errors.recent.map((error, index) => (
-                                    <div key={index} className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
-                                        <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
-                                        <div className="flex-1">
-                                            <div className="flex items-center gap-2 mb-1">
-                                                <span className="text-sm font-medium text-red-900">{error.error_type}</span>
-                                                <span className="text-xs text-red-600">
-                                                    {new Date(error.created_at).toLocaleDateString('ja-JP')}
-                                                </span>
-                                            </div>
-                                            <p className="text-sm text-red-800">{error.error_message}</p>
-                                        </div>
-                                    </div>
+                    {syncStatus.healthScore.recommendations.length > 0 && (
+                        <div className="bg-blue-50 rounded-lg p-4">
+                            <h3 className="font-medium text-blue-900 mb-2">Recommendations</h3>
+                            <ul className="space-y-1">
+                                {syncStatus.healthScore.recommendations.map((rec, index) => (
+                                    <li key={index} className="text-sm text-blue-800 flex items-start gap-2">
+                                        <span className="w-1 h-1 bg-blue-600 rounded-full mt-2 flex-shrink-0"></span>
+                                        {rec}
+                                    </li>
                                 ))}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* No Data Message */}
-                    {chartData.length === 0 && (
-                        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
-                            <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
-                            <h3 className="text-lg font-medium text-gray-900 mb-2">No Activity Data</h3>
-                            <p className="text-gray-600 mb-6">
-                                Connect your Fitbit account and sync your data to see your activity dashboard.
-                            </p>
-                            <button
-                                onClick={handleSync}
-                                disabled={syncing}
-                                className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                            >
-                                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                                {syncing ? 'Syncing...' : 'Sync Fitbit Data'}
-                            </button>
+                            </ul>
                         </div>
                     )}
                 </div>
+            )}
+
+            {/* Summary Cards */}
+            {syncStatus && (
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Average Steps</p>
+                                <p className="text-2xl font-bold text-gray-900">{syncStatus.summary.averageSteps.toLocaleString()}</p>
+                            </div>
+                            <Footprints className="w-8 h-8 text-blue-600" />
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Average Sleep</p>
+                                <p className="text-2xl font-bold text-gray-900">{syncStatus.summary.averageSleepHours}h</p>
+                            </div>
+                            <Moon className="w-8 h-8 text-purple-600" />
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Data Completeness</p>
+                                <p className="text-2xl font-bold text-gray-900">
+                                    {Math.round((syncStatus.summary.daysWithSteps / syncStatus.summary.totalDays) * 100)}%
+                                </p>
+                            </div>
+                            <TrendingUp className="w-8 h-8 text-green-600" />
+                        </div>
+                    </div>
+
+                    <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                        <div className="flex items-center justify-between">
+                            <div>
+                                <p className="text-sm font-medium text-gray-600">Last Sync</p>
+                                <p className="text-sm font-bold text-gray-900">
+                                    {syncStatus.summary.lastSync ?
+                                        new Date(syncStatus.summary.lastSync).toLocaleDateString('ja-JP') : 'Never'}
+                                </p>
+                            </div>
+                            <Calendar className="w-8 h-8 text-gray-600" />
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Charts Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                {/* Steps Chart */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <Footprints className="w-5 h-5 text-blue-600" />
+                            Daily Steps
+                        </h3>
+                        <select
+                            value={chartPeriods.steps}
+                            onChange={(e) => setChartPeriods(prev => ({ ...prev, steps: e.target.value }))}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                            {periodOptions.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {(() => {
+                        const stepsData = getFilteredChartData('steps')
+                        const stats = calculateStats(stepsData, 'steps')
+                        return (
+                            <>
+                                <div className="grid grid-cols-3 gap-4 mb-4 text-center">
+                                    <div>
+                                        <div className="text-sm text-gray-600">平均</div>
+                                        <div className="text-lg font-semibold text-blue-600">{stats.avg.toLocaleString()}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-sm text-gray-600">最大</div>
+                                        <div className="text-lg font-semibold text-green-600">{stats.max.toLocaleString()}</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-sm text-gray-600">最小</div>
+                                        <div className="text-lg font-semibold text-orange-600">{stats.min.toLocaleString()}</div>
+                                    </div>
+                                </div>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <AreaChart data={stepsData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                        <XAxis dataKey="date" />
+                                        <YAxis
+                                            domain={calculateYAxisDomain(stepsData, 'steps')}
+                                            tickCount={calculateTickCount(calculateYAxisDomain(stepsData, 'steps'))}
+                                            tickFormatter={(value) => Math.round(Number(value)).toLocaleString()}
+                                        />
+                                        <Tooltip formatter={(value) => [
+                                            typeof value === 'number' ? Math.round(value).toLocaleString() : '0',
+                                            'Steps'
+                                        ]} />
+                                        <Area
+                                            type="monotone"
+                                            dataKey="steps"
+                                            stroke="#2563eb"
+                                            fill="#3b82f6"
+                                            fillOpacity={0.3}
+                                        />
+                                    </AreaChart>
+                                </ResponsiveContainer>
+                            </>
+                        )
+                    })()}
+                </div>
+
+                {/* Heart Rate Chart */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <Heart className="w-5 h-5 text-red-600" />
+                            Resting Heart Rate
+                        </h3>
+                        <select
+                            value={chartPeriods.heartRate}
+                            onChange={(e) => setChartPeriods(prev => ({ ...prev, heartRate: e.target.value }))}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                            {periodOptions.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {(() => {
+                        const heartRateData = getFilteredChartData('heartRate')
+                        const stats = calculateStats(heartRateData, 'heartRate')
+                        return (
+                            <>
+                                <div className="grid grid-cols-3 gap-4 mb-4 text-center">
+                                    <div>
+                                        <div className="text-sm text-gray-600">平均</div>
+                                        <div className="text-lg font-semibold text-red-600">{stats.avg} bpm</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-sm text-gray-600">最大</div>
+                                        <div className="text-lg font-semibold text-green-600">{stats.max} bpm</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-sm text-gray-600">最小</div>
+                                        <div className="text-lg font-semibold text-orange-600">{stats.min} bpm</div>
+                                    </div>
+                                </div>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <LineChart data={heartRateData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                        <XAxis dataKey="date" />
+                                        <YAxis
+                                            domain={calculateYAxisDomain(heartRateData, 'heartRate')}
+                                            tickCount={calculateTickCount(calculateYAxisDomain(heartRateData, 'heartRate'))}
+                                            tickFormatter={(value) => Math.round(Number(value)).toString()}
+                                        />
+                                        <Tooltip formatter={(value) => [
+                                            typeof value === 'number' ? Math.round(value) : Math.round(Number(value) || 0),
+                                            'bpm'
+                                        ]} />
+                                        <Line
+                                            type="monotone"
+                                            dataKey="heartRate"
+                                            stroke="#dc2626"
+                                            strokeWidth={2}
+                                            dot={{ fill: '#dc2626' }}
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </>
+                        )
+                    })()}
+                </div>
+
+                {/* Sleep Chart */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <Moon className="w-5 h-5 text-purple-600" />
+                            Sleep Hours
+                        </h3>
+                        <select
+                            value={chartPeriods.sleep}
+                            onChange={(e) => setChartPeriods(prev => ({ ...prev, sleep: e.target.value }))}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                            {periodOptions.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {(() => {
+                        const sleepData = getFilteredChartData('sleep')
+                        const stats = calculateStats(sleepData, 'sleepHours')
+                        return (
+                            <>
+                                <div className="grid grid-cols-3 gap-4 mb-4 text-center">
+                                    <div>
+                                        <div className="text-sm text-gray-600">平均</div>
+                                        <div className="text-lg font-semibold text-purple-600">{stats.avg}h</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-sm text-gray-600">最大</div>
+                                        <div className="text-lg font-semibold text-green-600">{stats.max}h</div>
+                                    </div>
+                                    <div>
+                                        <div className="text-sm text-gray-600">最小</div>
+                                        <div className="text-lg font-semibold text-orange-600">{stats.min}h</div>
+                                    </div>
+                                </div>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <BarChart data={sleepData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                        <XAxis dataKey="date" />
+                                        <YAxis
+                                            domain={calculateYAxisDomain(sleepData, 'sleepHours')}
+                                            tickCount={calculateTickCount(calculateYAxisDomain(sleepData, 'sleepHours'))}
+                                            tickFormatter={(value) => typeof value === 'number' ? value.toFixed(1) : '0'}
+                                        />
+                                        <Tooltip formatter={(value) => [
+                                            typeof value === 'number' ? value.toFixed(1) : '0',
+                                            'Hours'
+                                        ]} />
+                                        <Bar dataKey="sleepHours" fill="#7c3aed" />
+                                    </BarChart>
+                                </ResponsiveContainer>
+                            </>
+                        )
+                    })()}
+                </div>
+
+                {/* Weight Chart */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <Scale className="w-5 h-5 text-indigo-600" />
+                            Weight & Body Fat
+                        </h3>
+                        <select
+                            value={chartPeriods.weight}
+                            onChange={(e) => setChartPeriods(prev => ({ ...prev, weight: e.target.value }))}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                            {periodOptions.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {(() => {
+                        const weightData = getFilteredChartData('weight')
+                        const weightStats = calculateStats(weightData, 'weight')
+                        const bodyFatStats = calculateStats(weightData, 'bodyFat')
+                        return (
+                            <>
+                                <div className="grid grid-cols-2 gap-6 mb-4">
+                                    <div>
+                                        <div className="text-sm text-gray-600 mb-2">体重 (kg)</div>
+                                        <div className="grid grid-cols-3 gap-2 text-center">
+                                            <div>
+                                                <div className="text-xs text-gray-500">平均</div>
+                                                <div className="text-sm font-semibold text-indigo-600">{weightStats.avg}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500">最大</div>
+                                                <div className="text-sm font-semibold text-green-600">{weightStats.max}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500">最小</div>
+                                                <div className="text-sm font-semibold text-orange-600">{weightStats.min}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-sm text-gray-600 mb-2">体脂肪率 (%)</div>
+                                        <div className="grid grid-cols-3 gap-2 text-center">
+                                            <div>
+                                                <div className="text-xs text-gray-500">平均</div>
+                                                <div className="text-sm font-semibold text-amber-600">{bodyFatStats.avg}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500">最大</div>
+                                                <div className="text-sm font-semibold text-red-600">{bodyFatStats.max}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500">最小</div>
+                                                <div className="text-sm font-semibold text-green-600">{bodyFatStats.min}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <LineChart data={weightData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                        <XAxis dataKey="date" />
+                                        <YAxis
+                                            yAxisId="left"
+                                            domain={calculateYAxisDomain(weightData, 'weight')}
+                                            tickCount={calculateTickCount(calculateYAxisDomain(weightData, 'weight'))}
+                                            tickFormatter={(value) => (Math.round(Number(value) * 10) / 10).toString()}
+                                        />
+                                        <YAxis
+                                            yAxisId="right"
+                                            orientation="right"
+                                            domain={calculateYAxisDomain(weightData, 'bodyFat')}
+                                            tickCount={calculateTickCount(calculateYAxisDomain(weightData, 'bodyFat'))}
+                                            tickFormatter={(value) => (Math.round(Number(value) * 10) / 10).toString()}
+                                        />
+                                        <Tooltip formatter={(value, name) => [
+                                            typeof value === 'number' ? Math.round(value * 10) / 10 : Math.round(Number(value || 0) * 10) / 10,
+                                            name === 'weight' ? 'Weight (kg)' : 'Body Fat (%)'
+                                        ]} />
+                                        <Line
+                                            yAxisId="left"
+                                            type="monotone"
+                                            dataKey="weight"
+                                            stroke="#6366f1"
+                                            strokeWidth={2}
+                                            name="weight"
+                                            dot={{ fill: '#6366f1' }}
+                                        />
+                                        <Line
+                                            yAxisId="right"
+                                            type="monotone"
+                                            dataKey="bodyFat"
+                                            stroke="#f59e0b"
+                                            strokeWidth={2}
+                                            name="bodyFat"
+                                            dot={{ fill: '#f59e0b' }}
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </>
+                        )
+                    })()}
+                </div>
+
+                {/* Activity Chart */}
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <div className="flex items-center justify-between mb-4">
+                        <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                            <Zap className="w-5 h-5 text-orange-600" />
+                            Active Minutes & Calories
+                        </h3>
+                        <select
+                            value={chartPeriods.activity}
+                            onChange={(e) => setChartPeriods(prev => ({ ...prev, activity: e.target.value }))}
+                            className="px-3 py-1 text-sm border border-gray-300 rounded focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                        >
+                            {periodOptions.map(option => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
+                    </div>
+
+                    {(() => {
+                        const activityData = getFilteredChartData('activity')
+                        const activeMinutesStats = calculateStats(activityData, 'activeMinutes')
+                        const caloriesStats = calculateStats(activityData, 'calories')
+                        return (
+                            <>
+                                <div className="grid grid-cols-2 gap-6 mb-4">
+                                    <div>
+                                        <div className="text-sm text-gray-600 mb-2">活動時間 (分)</div>
+                                        <div className="grid grid-cols-3 gap-2 text-center">
+                                            <div>
+                                                <div className="text-xs text-gray-500">平均</div>
+                                                <div className="text-sm font-semibold text-orange-600">{activeMinutesStats.avg}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500">最大</div>
+                                                <div className="text-sm font-semibold text-green-600">{activeMinutesStats.max}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500">最小</div>
+                                                <div className="text-sm font-semibold text-red-600">{activeMinutesStats.min}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <div className="text-sm text-gray-600 mb-2">消費カロリー</div>
+                                        <div className="grid grid-cols-3 gap-2 text-center">
+                                            <div>
+                                                <div className="text-xs text-gray-500">平均</div>
+                                                <div className="text-sm font-semibold text-green-600">{caloriesStats.avg.toLocaleString()}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500">最大</div>
+                                                <div className="text-sm font-semibold text-blue-600">{caloriesStats.max.toLocaleString()}</div>
+                                            </div>
+                                            <div>
+                                                <div className="text-xs text-gray-500">最小</div>
+                                                <div className="text-sm font-semibold text-purple-600">{caloriesStats.min.toLocaleString()}</div>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                                <ResponsiveContainer width="100%" height={300}>
+                                    <LineChart data={activityData}>
+                                        <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                                        <XAxis dataKey="date" />
+                                        <YAxis
+                                            yAxisId="left"
+                                            domain={calculateYAxisDomain(activityData, 'activeMinutes')}
+                                            tickCount={calculateTickCount(calculateYAxisDomain(activityData, 'activeMinutes'))}
+                                            tickFormatter={(value) => Math.round(Number(value)).toString()}
+                                        />
+                                        <YAxis
+                                            yAxisId="right"
+                                            orientation="right"
+                                            domain={calculateYAxisDomain(activityData, 'calories')}
+                                            tickCount={calculateTickCount(calculateYAxisDomain(activityData, 'calories'))}
+                                            tickFormatter={(value) => Math.round(Number(value)).toLocaleString()}
+                                        />
+                                        <Tooltip formatter={(value, name) => {
+                                            const numValue = typeof value === 'number' ? value : Number(value) || 0
+                                            return [
+                                                name === 'activeMinutes' ? Math.round(numValue) : Math.round(numValue).toLocaleString(),
+                                                name === 'activeMinutes' ? 'Active Minutes' : 'Calories'
+                                            ]
+                                        }} />
+                                        <Line
+                                            yAxisId="left"
+                                            type="monotone"
+                                            dataKey="activeMinutes"
+                                            stroke="#ea580c"
+                                            strokeWidth={2}
+                                            name="activeMinutes"
+                                        />
+                                        <Line
+                                            yAxisId="right"
+                                            type="monotone"
+                                            dataKey="calories"
+                                            stroke="#16a34a"
+                                            strokeWidth={2}
+                                            name="calories"
+                                        />
+                                    </LineChart>
+                                </ResponsiveContainer>
+                            </>
+                        )
+                    })()}
+                </div>
             </div>
+
+            {/* Recent Errors */}
+            {syncStatus && syncStatus.errors.recent.length > 0 && (
+                <div className="mt-8 bg-white rounded-lg shadow-sm border border-gray-200 p-6">
+                    <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center gap-2">
+                        <AlertCircle className="w-5 h-5 text-red-600" />
+                        Recent Sync Errors
+                    </h3>
+                    <div className="space-y-3">
+                        {syncStatus.errors.recent.map((error, index) => (
+                            <div key={index} className="flex items-start gap-3 p-3 bg-red-50 rounded-lg">
+                                <AlertCircle className="w-4 h-4 text-red-600 mt-0.5 flex-shrink-0" />
+                                <div className="flex-1">
+                                    <div className="flex items-center gap-2 mb-1">
+                                        <span className="text-sm font-medium text-red-900">{error.error_type}</span>
+                                        <span className="text-xs text-red-600">
+                                            {new Date(error.created_at).toLocaleDateString('ja-JP')}
+                                        </span>
+                                    </div>
+                                    <p className="text-sm text-red-800">{error.error_message}</p>
+                                </div>
+                            </div>
+                        ))}
+                    </div>
+                </div>
+            )}
+
+            {/* No Data Message */}
+            {chartData.length === 0 && (
+                <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-12 text-center">
+                    <Activity className="w-16 h-16 text-gray-400 mx-auto mb-4" />
+                    <h3 className="text-lg font-medium text-gray-900 mb-2">No Activity Data</h3>
+                    <p className="text-gray-600 mb-6">
+                        Connect your Fitbit account and sync your data to see your activity dashboard.
+                    </p>
+                    <button
+                        onClick={handleSync}
+                        disabled={syncing}
+                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                    >
+                        <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                        {syncing ? 'Syncing...' : 'Sync Fitbit Data'}
+                    </button>
+                </div>
+            )}
         </div>
+            </div >
+        </div >
     )
 }
