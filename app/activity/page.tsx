@@ -1031,8 +1031,6 @@ export default function ActivityPage() {
                     </button>
                 </div>
             )}
-        </div>
-            </div >
-        </div >
+        </PageLayout>
     )
 }
