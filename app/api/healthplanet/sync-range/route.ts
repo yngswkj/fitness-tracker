@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import { sql } from '@vercel/postgres'
 import {
     ensureValidHealthPlanetToken,
@@ -99,14 +99,19 @@ export async function POST(request: NextRequest) {
         }
 
         // 未取得またはweightがNULLの日付を特定
-        const { rows: existingData } = await sql`
-            SELECT date FROM fitbit_data 
-            WHERE user_id = ${userId} 
-            AND date = ANY(${dates})
-            AND weight IS NOT NULL
-        `
+        const existingDataPromises = dates.map(async (date) => {
+            const { rows } = await sql`
+                SELECT date FROM fitbit_data 
+                WHERE user_id = ${userId} 
+                AND date = ${date}
+                AND weight IS NOT NULL
+            `
+            return rows.length > 0 ? date : null
+        })
+        const existingResults = await Promise.all(existingDataPromises)
+        const existingData = { rows: existingResults.filter(date => date !== null).map(date => ({ date })) }
 
-        const existingDates = new Set(existingData.map(row => row.date))
+        const existingDates = new Set(existingData.rows.map(row => row.date))
         const targetDates = dates.filter(date => !existingDates.has(date))
 
         console.log(`HealthPlanet Sync Range: ${adjustedFromDate} to ${toDate}`)

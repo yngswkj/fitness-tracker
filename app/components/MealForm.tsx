@@ -279,7 +279,7 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
                 <div className="flex items-center space-x-2">
                     <button
                         type="button"
-                        onClick={calculateNutrition}
+                        onClick={handleCalculateNutrition}
                         className="btn-secondary flex items-center"
                     >
                         <Calculator className="h-4 w-4 mr-2" />

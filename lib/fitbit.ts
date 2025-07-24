@@ -349,3 +349,17 @@ export async function getSyncErrors(userId: string, days: number) {
         return []
     }
 }
+
+/**
+ * 古い同期エラーをクリア
+ */
+export async function clearOldSyncErrors(userId: string, days: number) {
+    try {
+        // For now, return success since we don't have a sync_errors table
+        // In a real implementation, you would delete old errors from the sync_errors table
+        return { success: true }
+    } catch (error) {
+        console.error('Error clearing old sync errors:', error)
+        return { success: false, error: error.message }
+    }
+}

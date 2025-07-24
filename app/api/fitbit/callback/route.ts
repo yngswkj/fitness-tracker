@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import { sql } from '@vercel/postgres'
 
 export async function GET(request: NextRequest) {
@@ -95,7 +95,7 @@ async function saveTokens(userId: string, tokenData: any) {
 
     await sql`
     INSERT INTO fitbit_tokens (user_id, access_token, refresh_token, expires_at)
-    VALUES (${userId}, ${tokenData.access_token}, ${tokenData.refresh_token}, ${expiresAt})
+    VALUES (${userId}, ${tokenData.access_token}, ${tokenData.refresh_token}, ${expiresAt.toISOString()})
     ON CONFLICT (user_id) 
     DO UPDATE SET 
       access_token = EXCLUDED.access_token,

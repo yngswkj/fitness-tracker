@@ -638,7 +638,7 @@ export default function ActivityPage() {
                                                 <YAxis
                                                     domain={calculateYAxisDomain(stepsData, 'steps')}
                                                     tickCount={calculateTickCount(calculateYAxisDomain(stepsData, 'steps'))}
-                                                    tickFormatter={(value) => Math.round(value).toLocaleString()}
+                                                    tickFormatter={(value) => Math.round(Number(value)).toLocaleString()}
                                                 />
                                                 <Tooltip formatter={(value) => [
                                                     typeof value === 'number' ? Math.round(value).toLocaleString() : '0',
@@ -702,7 +702,7 @@ export default function ActivityPage() {
                                                 <YAxis
                                                     domain={calculateYAxisDomain(heartRateData, 'heartRate')}
                                                     tickCount={calculateTickCount(calculateYAxisDomain(heartRateData, 'heartRate'))}
-                                                    tickFormatter={(value) => Math.round(value).toString()}
+                                                    tickFormatter={(value) => Math.round(Number(value)).toString()}
                                                 />
                                                 <Tooltip formatter={(value) => [
                                                     typeof value === 'number' ? Math.round(value) : Math.round(Number(value) || 0),
@@ -848,14 +848,14 @@ export default function ActivityPage() {
                                                     yAxisId="left"
                                                     domain={calculateYAxisDomain(weightData, 'weight')}
                                                     tickCount={calculateTickCount(calculateYAxisDomain(weightData, 'weight'))}
-                                                    tickFormatter={(value) => Math.round(value * 10) / 10}
+                                                    tickFormatter={(value) => (Math.round(Number(value) * 10) / 10).toString()}
                                                 />
                                                 <YAxis
                                                     yAxisId="right"
                                                     orientation="right"
                                                     domain={calculateYAxisDomain(weightData, 'bodyFat')}
                                                     tickCount={calculateTickCount(calculateYAxisDomain(weightData, 'bodyFat'))}
-                                                    tickFormatter={(value) => Math.round(value * 10) / 10}
+                                                    tickFormatter={(value) => (Math.round(Number(value) * 10) / 10).toString()}
                                                 />
                                                 <Tooltip formatter={(value, name) => [
                                                     typeof value === 'number' ? Math.round(value * 10) / 10 : Math.round(Number(value || 0) * 10) / 10,
@@ -954,14 +954,14 @@ export default function ActivityPage() {
                                                     yAxisId="left"
                                                     domain={calculateYAxisDomain(activityData, 'activeMinutes')}
                                                     tickCount={calculateTickCount(calculateYAxisDomain(activityData, 'activeMinutes'))}
-                                                    tickFormatter={(value) => Math.round(value).toString()}
+                                                    tickFormatter={(value) => Math.round(Number(value)).toString()}
                                                 />
                                                 <YAxis
                                                     yAxisId="right"
                                                     orientation="right"
                                                     domain={calculateYAxisDomain(activityData, 'calories')}
                                                     tickCount={calculateTickCount(calculateYAxisDomain(activityData, 'calories'))}
-                                                    tickFormatter={(value) => Math.round(value).toLocaleString()}
+                                                    tickFormatter={(value) => Math.round(Number(value)).toLocaleString()}
                                                 />
                                                 <Tooltip formatter={(value, name) => {
                                                     const numValue = typeof value === 'number' ? value : Number(value) || 0

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getServerSession } from 'next-auth/next'
-import { authOptions } from '../../auth/[...nextauth]/route'
+import { authOptions } from '@/lib/auth'
 import { sql } from '@vercel/postgres'
 import {
     ensureValidToken,
@@ -55,7 +55,7 @@ export async function POST(request: NextRequest) {
         SET 
           access_token = ${validTokens.access_token},
           refresh_token = ${validTokens.refresh_token},
-          expires_at = ${validTokens.expires_at},
+          expires_at = ${validTokens.expires_at.toISOString()},
           updated_at = NOW()
         WHERE user_id = ${userId}
       `
@@ -71,14 +71,21 @@ export async function POST(request: NextRequest) {
         }
 
         // 既存データをチェックして、データが存在しない日付またはstepsがNULLの日付を対象にする
-        const { rows: existingData } = await sql`
-            SELECT date FROM fitbit_data 
-            WHERE user_id = ${userId} 
-            AND date = ANY(${dates})
-            AND steps IS NOT NULL
-        `
+        const placeholders = dates.map((_, i) => `$${i + 2}`).join(',')
+        // Use a simple approach to check existing data for each date
+        const existingDataPromises = dates.map(async (date) => {
+            const { rows } = await sql`
+                SELECT date FROM fitbit_data 
+                WHERE user_id = ${userId} 
+                AND date = ${date}
+                AND steps IS NOT NULL
+            `
+            return rows.length > 0 ? date : null
+        })
+        const existingResults = await Promise.all(existingDataPromises)
+        const existingData = { rows: existingResults.filter(date => date !== null).map(date => ({ date })) }
 
-        const existingDates = new Set(existingData.map(row => row.date))
+        const existingDates = new Set(existingData.rows.map(row => row.date))
         const newDates = dates.filter(date => !existingDates.has(date))
 
         const syncResults = []
