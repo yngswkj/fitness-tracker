@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import PageLayout from '../components/PageLayout'
+import FitbitSyncProgress from '../components/FitbitSyncProgress'
 import {
     LineChart,
     Line,
@@ -82,7 +83,7 @@ export default function ActivityPage() {
     const [fitbitData, setFitbitData] = useState<FitbitData[]>([])
     const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
     const [loading, setLoading] = useState(true)
-    const [syncing, setSyncing] = useState(false)
+
     const [selectedPeriod, setSelectedPeriod] = useState('7')
 
     // 各グラフの個別期間設定（初期値を7日間に統一）
@@ -179,28 +180,7 @@ export default function ActivityPage() {
         return { from, to }
     }
 
-    const handleSync = async () => {
-        setSyncing(true)
-        try {
-            const response = await fetch('/api/fitbit/sync', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ date: new Date().toISOString().split('T')[0] })
-            })
 
-            if (response.ok) {
-                await fetchData() // Refresh data after sync
-            } else {
-                const error = await response.json()
-                alert(`Sync failed: ${error.error}`)
-            }
-        } catch (error) {
-            console.error('Sync error:', error)
-            alert('Sync failed. Please try again.')
-        } finally {
-            setSyncing(false)
-        }
-    }
 
     const formatChartData = () => {
         return fitbitData
@@ -218,58 +198,70 @@ export default function ActivityPage() {
             }))
     }
 
-    // 各グラフ用のデータフィルタリング関数（有効値ありのデータから開始）
+    // 各グラフ用のデータフィルタリング関数（欠落データ対応版）
     const getFilteredChartData = (chartType: string) => {
         const days = parseInt(chartPeriods[chartType as keyof typeof chartPeriods])
-        const cutoffDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000)
+        const today = new Date()
+        today.setHours(23, 59, 59, 999)
+        const startDate = new Date(today.getTime() - (days - 1) * 24 * 60 * 60 * 1000)
+        startDate.setHours(0, 0, 0, 0)
 
-        // 指定期間内のデータを取得
-        const periodData = fitbitData
-            .filter(item => new Date(item.date) >= cutoffDate)
-            .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+        // 既存データを日付でマップ化
+        const dataMap = new Map<string, FitbitData>()
+        fitbitData.forEach(item => {
+            const itemDate = new Date(item.date)
+            if (itemDate >= startDate && itemDate <= today) {
+                // 日付のみを抽出してキーとして使用
+                const dateKey = itemDate.toISOString().split('T')[0]
+                dataMap.set(dateKey, item)
+            }
+        })
 
-        // チャートタイプに応じて有効なデータの条件を設定
-        let validDataFilter: (item: FitbitData) => boolean
+        // 連続した日付範囲を生成
+        const result = []
+        const currentDate = new Date(startDate)
+        
+        while (currentDate <= today) {
+            const dateStr = currentDate.toISOString().split('T')[0]
+            const actualItem = dataMap.get(dateStr)
+            const formattedDate = currentDate.toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' })
+            
+            if (actualItem) {
+                result.push({
+                    date: formattedDate,
+                    originalDate: dateStr,
+                    steps: actualItem.steps || 0,
+                    calories: actualItem.calories_burned || 0,
+                    distance: actualItem.distance_km || 0,
+                    activeMinutes: actualItem.active_minutes || 0,
+                    sleepHours: actualItem.sleep_hours || 0,
+                    heartRate: actualItem.resting_heart_rate || 0,
+                    weight: actualItem.weight,
+                    bodyFat: actualItem.body_fat,
+                    hasValidData: true,
+                    isMissing: false
+                })
+            } else {
+                result.push({
+                    date: formattedDate,
+                    originalDate: dateStr,
+                    steps: null,
+                    calories: null,
+                    distance: null,
+                    activeMinutes: null,
+                    sleepHours: null,
+                    heartRate: null,
+                    weight: null,
+                    bodyFat: null,
+                    hasValidData: false,
+                    isMissing: true
+                })
+            }
 
-        switch (chartType) {
-            case 'steps':
-                validDataFilter = (item) => item.steps != null && item.steps > 0
-                break
-            case 'heartRate':
-                validDataFilter = (item) => item.resting_heart_rate != null && item.resting_heart_rate > 0
-                break
-            case 'sleep':
-                validDataFilter = (item) => item.sleep_hours != null
-                break
-            case 'weight':
-                validDataFilter = (item) => item.weight != null || item.body_fat != null
-                break
-            case 'activity':
-                validDataFilter = (item) => (item.active_minutes != null && item.active_minutes > 0) ||
-                    (item.calories_burned != null && item.calories_burned > 0)
-                break
-            default:
-                validDataFilter = () => true
+            currentDate.setDate(currentDate.getDate() + 1)
         }
 
-        // 有効なデータがある最古の日付を見つける
-        const firstValidData = periodData.find(validDataFilter)
-        const startDate = firstValidData ? new Date(firstValidData.date) : cutoffDate
-
-        // 有効なデータがある日付以降のデータを返す
-        return periodData
-            .filter(item => new Date(item.date) >= startDate)
-            .map(item => ({
-                date: new Date(item.date).toLocaleDateString('ja-JP', { month: 'short', day: 'numeric' }),
-                steps: item.steps || 0,
-                calories: item.calories_burned || 0,
-                distance: item.distance_km || 0,
-                activeMinutes: item.active_minutes || 0,
-                sleepHours: item.sleep_hours, // NULLをそのまま保持
-                heartRate: item.resting_heart_rate || 0,
-                weight: item.weight, // NULLをそのまま保持
-                bodyFat: item.body_fat // NULLをそのまま保持
-            }))
+        return result
     }
 
     // Tooltip用の値フォーマット関数
@@ -286,16 +278,24 @@ export default function ActivityPage() {
         }
     }
 
-    // 統計情報を計算する関数
+    // 統計情報を計算する関数（新データ構造対応）
     const calculateStats = (data: any[], key: string) => {
-        // 生データから有効な値を抽出
-        const rawValues = data.map(item => item[key])
+        // 有効なデータのみから値を抽出（isMissingがfalseまたは未定義のもの）
+        const validData = data.filter(item => !item.isMissing)
+        const rawValues = validData.map(item => item[key])
 
         // データタイプに応じて有効な値の条件を設定
         let values = []
 
-        if (key === 'sleepHours' || key === 'weight' || key === 'bodyFat') {
-            // 睡眠時間、体重、体脂肪は0も有効な値として扱う
+        if (key === 'sleepHours') {
+            // 睡眠時間は0より大きい値のみ有効とする
+            values = rawValues.filter(val => {
+                if (val === null || val === undefined) return false
+                const num = parseFloat(val)
+                return !isNaN(num) && isFinite(num) && num > 0
+            }).map(val => parseFloat(val))
+        } else if (key === 'weight' || key === 'bodyFat') {
+            // 体重、体脂肪は0も有効な値として扱う
             values = rawValues.filter(val => {
                 // null, undefined, NaN, 文字列を除外
                 if (val === null || val === undefined) return false
@@ -326,7 +326,16 @@ export default function ActivityPage() {
         const formatValue = (val: number) => {
             if (!isFinite(val) || isNaN(val)) return '-'
 
-            if (key === 'sleepHours' || key === 'weight' || key === 'bodyFat') {
+            if (key === 'sleepHours') {
+                // 睡眠時間は時間と分で表示
+                const hours = Math.floor(val)
+                const minutes = Math.round((val - hours) * 60)
+                if (minutes === 0) {
+                    return `${hours}h`
+                } else {
+                    return `${hours}h${minutes}m`
+                }
+            } else if (key === 'weight' || key === 'bodyFat') {
                 return Math.round(val * 10) / 10 // 小数点1桁
             }
             return Math.round(val) // その他は整数
@@ -376,7 +385,15 @@ export default function ActivityPage() {
 
     // グラフのY軸範囲を計算する関数（整数でキリの良い数字）
     const calculateYAxisDomain = (data: any[], key: string) => {
-        const values = data.map(item => item[key]).filter(val => val != null && !isNaN(val) && val > 0)
+        // 有効なデータのみから値を抽出
+        const validData = data.filter(item => !item.isMissing)
+        let values = validData.map(item => item[key]).filter(val => val != null && !isNaN(val))
+        
+        // 0より大きい値のみを対象にするかどうか（weightとbodyFatは0も有効）
+        if (key !== 'weight' && key !== 'bodyFat') {
+            values = values.filter(val => val > 0)
+        }
+        
         if (values.length === 0) return [0, 100]
 
         const min = Math.min(...values)
@@ -408,6 +425,51 @@ export default function ActivityPage() {
         return [domainMin, domainMax]
     }
 
+    // Weight & Body Fatグラフ用の同期化された軸範囲計算
+    const calculateSynchronizedAxisDomains = (data: any[]) => {
+        // 有効なデータのみから値を抽出
+        const validData = data.filter(item => !item.isMissing)
+        const weightValues = validData.map(item => item.weight).filter(val => val != null && !isNaN(val) && val > 0)
+        const bodyFatValues = validData.map(item => item.bodyFat).filter(val => val != null && !isNaN(val) && val > 0)
+
+        if (weightValues.length === 0 && bodyFatValues.length === 0) {
+            return { weight: [0, 100], bodyFat: [0, 50] }
+        }
+
+        // 各データの範囲を計算
+        const weightMin = weightValues.length > 0 ? Math.min(...weightValues) : 0
+        const weightMax = weightValues.length > 0 ? Math.max(...weightValues) : 100
+        const bodyFatMin = bodyFatValues.length > 0 ? Math.min(...bodyFatValues) : 0
+        const bodyFatMax = bodyFatValues.length > 0 ? Math.max(...bodyFatValues) : 50
+
+        // 変化率を計算（左右軸の比率を同じにするため）
+        const weightRange = weightMax - weightMin
+        const bodyFatRange = bodyFatMax - bodyFatMin
+
+        // 変化率を同じにするため、range/baseRatioで正規化
+        const weightBaseRatio = weightRange / (weightMin || 1)
+        const bodyFatBaseRatio = bodyFatRange / (bodyFatMin || 1)
+
+        // より大きな変化率に合わせて調整
+        const maxRatio = Math.max(weightBaseRatio, bodyFatBaseRatio, 0.1) // 最小10%の変化は保証
+
+        // 同じ比率で軸を設定
+        const weightPadding = (weightMin || 70) * maxRatio * 0.1 // 10%のpadding
+        const bodyFatPadding = (bodyFatMin || 15) * maxRatio * 0.1
+
+        const weightDomain = [
+            Math.max(0, Math.floor((weightMin - weightPadding) * 10) / 10),
+            Math.ceil((weightMax + weightPadding) * 10) / 10
+        ]
+
+        const bodyFatDomain = [
+            Math.max(0, Math.floor((bodyFatMin - bodyFatPadding) * 10) / 10),
+            Math.ceil((bodyFatMax + bodyFatPadding) * 10) / 10
+        ]
+
+        return { weight: weightDomain, bodyFat: bodyFatDomain }
+    }
+
     // Y軸の目盛り数を計算する関数
     const calculateTickCount = (domain: number[]) => {
         const range = domain[1] - domain[0]
@@ -415,6 +477,53 @@ export default function ActivityPage() {
         if (range <= 50) return 5
         if (range <= 100) return 6
         return 8
+    }
+
+    // カスタムDotコンポーネント（欠落データ対応版）
+    const CustomDot = (props: any) => {
+        const { cx, cy, payload, dataKey } = props
+        
+        if (!payload) return null
+        
+        // 欠落データの場合はグレーの点を表示
+        if (payload.isMissing) {
+            return (
+                <circle
+                    cx={cx}
+                    cy={cy}
+                    r={3}
+                    fill="#9ca3af"
+                    stroke="#6b7280"
+                    strokeWidth={1}
+                    opacity={0.7}
+                />
+            )
+        }
+        
+        // データが存在する場合の処理
+        const value = payload[dataKey]
+        if (value === null || value === undefined) {
+            return null
+        }
+        
+        // データタイプに応じて色を設定
+        let color = '#3b82f6' // デフォルト青
+        if (dataKey === 'heartRate') color = '#dc2626'
+        else if (dataKey === 'weight') color = '#6366f1'
+        else if (dataKey === 'bodyFat') color = '#f59e0b'
+        else if (dataKey === 'activeMinutes') color = '#ea580c'
+        else if (dataKey === 'calories') color = '#16a34a'
+        
+        return (
+            <circle
+                cx={cx}
+                cy={cy}
+                r={3}
+                fill={color}
+                stroke="white"
+                strokeWidth={1}
+            />
+        )
     }
 
 
@@ -468,14 +577,7 @@ export default function ActivityPage() {
                 <option value="180">Last 180 days</option>
                 <option value="365">Last 365 days</option>
             </select>
-            <button
-                onClick={handleSync}
-                disabled={syncing}
-                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                {syncing ? 'Syncing...' : 'Sync Now'}
-            </button>
+            <FitbitSyncProgress onSyncComplete={fetchData} />
         </>
     )
 
@@ -706,7 +808,8 @@ export default function ActivityPage() {
                                             dataKey="heartRate"
                                             stroke="#dc2626"
                                             strokeWidth={2}
-                                            dot={{ fill: '#dc2626' }}
+                                            connectNulls={true}
+                                            dot={<CustomDot dataKey="heartRate" />}
                                         />
                                     </LineChart>
                                 </ResponsiveContainer>
@@ -741,15 +844,15 @@ export default function ActivityPage() {
                                 <div className="grid grid-cols-3 gap-4 mb-4 text-center">
                                     <div>
                                         <div className="text-sm text-gray-600">平均</div>
-                                        <div className="text-lg font-semibold text-purple-600">{stats.avg}h</div>
+                                        <div className="text-lg font-semibold text-purple-600">{stats.avg}</div>
                                     </div>
                                     <div>
                                         <div className="text-sm text-gray-600">最大</div>
-                                        <div className="text-lg font-semibold text-green-600">{stats.max}h</div>
+                                        <div className="text-lg font-semibold text-green-600">{stats.max}</div>
                                     </div>
                                     <div>
                                         <div className="text-sm text-gray-600">最小</div>
-                                        <div className="text-lg font-semibold text-orange-600">{stats.min}h</div>
+                                        <div className="text-lg font-semibold text-orange-600">{stats.min}</div>
                                     </div>
                                 </div>
                                 <ResponsiveContainer width="100%" height={300}>
@@ -759,12 +862,27 @@ export default function ActivityPage() {
                                         <YAxis
                                             domain={calculateYAxisDomain(sleepData, 'sleepHours')}
                                             tickCount={calculateTickCount(calculateYAxisDomain(sleepData, 'sleepHours'))}
-                                            tickFormatter={(value) => typeof value === 'number' ? value.toFixed(1) : '0'}
+                                            tickFormatter={(value: any) => {
+                                                const numValue = typeof value === 'number' ? value : parseFloat(String(value)) || 0
+                                                const hours = Math.floor(numValue)
+                                                const minutes = Math.round((numValue - hours) * 60)
+                                                if (minutes === 0) {
+                                                    return `${hours}h`
+                                                } else {
+                                                    return `${hours}h${minutes}m`
+                                                }
+                                            }}
                                         />
-                                        <Tooltip formatter={(value) => [
-                                            typeof value === 'number' ? value.toFixed(1) : '0',
-                                            'Hours'
-                                        ]} />
+                                        <Tooltip formatter={(value: any) => {
+                                            const numValue = typeof value === 'number' ? value : parseFloat(String(value)) || 0
+                                            const hours = Math.floor(numValue)
+                                            const minutes = Math.round((numValue - hours) * 60)
+                                            if (minutes === 0) {
+                                                return [`${hours}h`, '睡眠時間']
+                                            } else {
+                                                return [`${hours}h${minutes}m`, '睡眠時間']
+                                            }
+                                        }} />
                                         <Bar dataKey="sleepHours" fill="#7c3aed" />
                                     </BarChart>
                                 </ResponsiveContainer>
@@ -795,6 +913,9 @@ export default function ActivityPage() {
                         const weightData = getFilteredChartData('weight')
                         const weightStats = calculateStats(weightData, 'weight')
                         const bodyFatStats = calculateStats(weightData, 'bodyFat')
+                        const syncedDomains = calculateSynchronizedAxisDomains(weightData)
+                        const weightDomain = syncedDomains.weight
+                        const bodyFatDomain = syncedDomains.bodyFat
                         return (
                             <>
                                 <div className="grid grid-cols-2 gap-6 mb-4">
@@ -839,16 +960,34 @@ export default function ActivityPage() {
                                         <XAxis dataKey="date" />
                                         <YAxis
                                             yAxisId="left"
-                                            domain={calculateYAxisDomain(weightData, 'weight')}
-                                            tickCount={calculateTickCount(calculateYAxisDomain(weightData, 'weight'))}
-                                            tickFormatter={(value) => (Math.round(Number(value) * 10) / 10).toString()}
+                                            domain={weightDomain}
+                                            ticks={(() => {
+                                                const ticks = []
+                                                const start = Math.floor(weightDomain[0])
+                                                const end = Math.ceil(weightDomain[1])
+                                                for (let i = start; i <= end; i++) {
+                                                    ticks.push(i)
+                                                }
+                                                return ticks
+                                            })()}
+                                            tick={{ fontSize: 12 }}
+                                            tickFormatter={(value) => `${value}kg`}
                                         />
                                         <YAxis
                                             yAxisId="right"
                                             orientation="right"
-                                            domain={calculateYAxisDomain(weightData, 'bodyFat')}
-                                            tickCount={calculateTickCount(calculateYAxisDomain(weightData, 'bodyFat'))}
-                                            tickFormatter={(value) => (Math.round(Number(value) * 10) / 10).toString()}
+                                            domain={bodyFatDomain}
+                                            ticks={(() => {
+                                                const ticks = []
+                                                const start = Math.floor(bodyFatDomain[0] * 2) / 2
+                                                const end = Math.ceil(bodyFatDomain[1] * 2) / 2
+                                                for (let i = start; i <= end; i += 0.5) {
+                                                    ticks.push(Math.round(i * 10) / 10)
+                                                }
+                                                return ticks
+                                            })()}
+                                            tick={{ fontSize: 12 }}
+                                            tickFormatter={(value) => `${value}%`}
                                         />
                                         <Tooltip formatter={(value, name) => [
                                             typeof value === 'number' ? Math.round(value * 10) / 10 : Math.round(Number(value || 0) * 10) / 10,
@@ -861,7 +1000,8 @@ export default function ActivityPage() {
                                             stroke="#6366f1"
                                             strokeWidth={2}
                                             name="weight"
-                                            dot={{ fill: '#6366f1' }}
+                                            connectNulls={true}
+                                            dot={<CustomDot dataKey="weight" />}
                                         />
                                         <Line
                                             yAxisId="right"
@@ -870,7 +1010,8 @@ export default function ActivityPage() {
                                             stroke="#f59e0b"
                                             strokeWidth={2}
                                             name="bodyFat"
-                                            dot={{ fill: '#f59e0b' }}
+                                            connectNulls={true}
+                                            dot={<CustomDot dataKey="bodyFat" />}
                                         />
                                     </LineChart>
                                 </ResponsiveContainer>
@@ -970,6 +1111,8 @@ export default function ActivityPage() {
                                             stroke="#ea580c"
                                             strokeWidth={2}
                                             name="activeMinutes"
+                                            connectNulls={true}
+                                            dot={<CustomDot dataKey="activeMinutes" />}
                                         />
                                         <Line
                                             yAxisId="right"
@@ -978,6 +1121,8 @@ export default function ActivityPage() {
                                             stroke="#16a34a"
                                             strokeWidth={2}
                                             name="calories"
+                                            connectNulls={true}
+                                            dot={<CustomDot dataKey="calories" />}
                                         />
                                     </LineChart>
                                 </ResponsiveContainer>
@@ -1021,14 +1166,7 @@ export default function ActivityPage() {
                     <p className="text-gray-600 mb-6">
                         Connect your Fitbit account and sync your data to see your activity dashboard.
                     </p>
-                    <button
-                        onClick={handleSync}
-                        disabled={syncing}
-                        className="inline-flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                    >
-                        <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
-                        {syncing ? 'Syncing...' : 'Sync Fitbit Data'}
-                    </button>
+                    <FitbitSyncProgress onSyncComplete={fetchData} />
                 </div>
             )}
         </PageLayout>
