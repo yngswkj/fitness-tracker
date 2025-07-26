@@ -182,20 +182,20 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
 
     return (
         <div className="card">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">
+            <h2 className="text-base md:text-lg font-semibold text-gray-900 mb-4 md:mb-6">
                 {isEditing ? '食事記録を編集' : '食事を記録'}
             </h2>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
+            <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
                 {/* 食事タイプ */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm md:text-base font-medium text-gray-700 mb-2">
                         食事タイプ
                     </label>
                     <select
                         value={formData.meal_type}
                         onChange={(e) => handleChange('meal_type', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[44px]"
                     >
                         {MEAL_TYPES.map(type => (
                             <option key={type.value} value={type.value}>
@@ -207,7 +207,7 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
 
                 {/* 食材名 */}
                 <div className="relative">
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm md:text-base font-medium text-gray-700 mb-2">
                         食材名
                     </label>
                     <input
@@ -217,23 +217,23 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
                         onFocus={() => formData.food_name && setShowSuggestions(true)}
                         onBlur={() => setTimeout(() => setShowSuggestions(false), 200)}
                         placeholder="例: 鶏胸肉、白米、バナナ"
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[44px]"
                         required
                     />
 
                     {/* 食材候補 */}
                     {showSuggestions && foodSuggestions.length > 0 && (
-                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-md shadow-lg max-h-48 overflow-y-auto">
+                        <div className="absolute z-10 w-full mt-1 bg-white border border-gray-300 rounded-lg shadow-lg max-h-48 md:max-h-60 overflow-y-auto">
                             {foodSuggestions.map((suggestion, index) => (
                                 <button
                                     key={index}
                                     type="button"
                                     onClick={() => handleSuggestionClick(suggestion)}
-                                    className="w-full px-3 py-2 text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none first:rounded-t-md last:rounded-b-md"
+                                    className="w-full px-3 md:px-4 py-3 md:py-4 text-sm md:text-base text-left hover:bg-gray-100 focus:bg-gray-100 focus:outline-none first:rounded-t-lg last:rounded-b-lg transition-colors min-h-[44px]"
                                 >
                                     <div className="flex items-center">
-                                        <Search className="h-4 w-4 text-gray-400 mr-2" />
-                                        {suggestion}
+                                        <Search className="h-4 w-4 md:h-5 md:w-5 text-gray-400 mr-2 md:mr-3 flex-shrink-0" />
+                                        <span>{suggestion}</span>
                                     </div>
                                 </button>
                             ))}
@@ -242,9 +242,9 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
                 </div>
 
                 {/* 分量と単位 */}
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm md:text-base font-medium text-gray-700 mb-2">
                             分量
                         </label>
                         <input
@@ -253,18 +253,18 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
                             onChange={(e) => handleChange('quantity', parseFloat(e.target.value) || 0)}
                             min="0"
                             step="0.1"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[44px]"
                             required
                         />
                     </div>
                     <div>
-                        <label className="block text-sm font-medium text-gray-700 mb-1">
+                        <label className="block text-sm md:text-base font-medium text-gray-700 mb-2">
                             単位
                         </label>
                         <select
                             value={formData.unit}
                             onChange={(e) => handleChange('unit', e.target.value)}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                            className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[44px]"
                         >
                             {availableUnits.map(unit => (
                                 <option key={unit} value={unit}>
@@ -276,19 +276,20 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
                 </div>
 
                 {/* 栄養価計算ボタン */}
-                <div className="flex items-center space-x-2">
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 sm:gap-4">
                     <button
                         type="button"
                         onClick={handleCalculateNutrition}
-                        className="btn-secondary flex items-center"
+                        className="btn-secondary flex items-center min-h-[44px] px-3 py-2 md:py-3 text-sm whitespace-nowrap"
                     >
-                        <Calculator className="h-4 w-4 mr-2" />
-                        栄養価を計算
+                        <Calculator className="h-4 w-4 md:h-5 md:w-5 mr-2 flex-shrink-0" />
+                        <span className="hidden sm:inline">栄養価を計算</span>
+                        <span className="sm:hidden">計算</span>
                     </button>
                     <button
                         type="button"
                         onClick={() => setShowNutritionCalculator(!showNutritionCalculator)}
-                        className="text-sm text-primary-600 hover:text-primary-700"
+                        className="text-sm md:text-base text-primary-600 hover:text-primary-700 min-h-[44px] flex items-center"
                     >
                         手動入力
                     </button>
@@ -296,9 +297,9 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
 
                 {/* 栄養価入力（手動または計算結果） */}
                 {(showNutritionCalculator || formData.calories !== undefined) && (
-                    <div className="grid grid-cols-2 gap-4 p-4 bg-gray-50 rounded-lg">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6 p-4 md:p-6 bg-gray-50 rounded-lg">
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm md:text-base font-medium text-gray-700 mb-2">
                                 カロリー (kcal)
                             </label>
                             <input
@@ -307,11 +308,11 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
                                 onChange={(e) => handleChange('calories', parseFloat(e.target.value) || undefined)}
                                 min="0"
                                 step="0.1"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[44px]"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm md:text-base font-medium text-gray-700 mb-2">
                                 タンパク質 (g)
                             </label>
                             <input
@@ -320,11 +321,11 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
                                 onChange={(e) => handleChange('protein', parseFloat(e.target.value) || undefined)}
                                 min="0"
                                 step="0.1"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[44px]"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm md:text-base font-medium text-gray-700 mb-2">
                                 炭水化物 (g)
                             </label>
                             <input
@@ -333,11 +334,11 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
                                 onChange={(e) => handleChange('carbs', parseFloat(e.target.value) || undefined)}
                                 min="0"
                                 step="0.1"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[44px]"
                             />
                         </div>
                         <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-1">
+                            <label className="block text-sm md:text-base font-medium text-gray-700 mb-2">
                                 脂質 (g)
                             </label>
                             <input
@@ -346,7 +347,7 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
                                 onChange={(e) => handleChange('fat', parseFloat(e.target.value) || undefined)}
                                 min="0"
                                 step="0.1"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                                className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[44px]"
                             />
                         </div>
                     </div>
@@ -354,37 +355,37 @@ export default function MealForm({ onSubmit, onCancel, initialData, isEditing = 
 
                 {/* 記録日時 */}
                 <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                    <label className="block text-sm md:text-base font-medium text-gray-700 mb-2">
                         記録日時
                     </label>
                     <input
                         type="datetime-local"
                         value={formData.recorded_at}
                         onChange={(e) => handleChange('recorded_at', e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500"
+                        className="w-full px-3 md:px-4 py-2 md:py-3 text-sm md:text-base border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-primary-500 focus:border-primary-500 min-h-[44px]"
                         required
                     />
                 </div>
 
                 {error && (
-                    <div className="text-red-600 text-sm">{error}</div>
+                    <div className="text-red-600 text-sm md:text-base p-3 bg-red-50 rounded-lg border border-red-200">{error}</div>
                 )}
 
                 {/* ボタン */}
-                <div className="flex space-x-3">
+                <div className="flex flex-col sm:flex-row gap-3 sm:gap-4 pt-2">
                     <button
                         type="submit"
                         disabled={loading || isLoading}
-                        className="btn-primary flex items-center disabled:opacity-50"
+                        className="btn-primary flex items-center justify-center disabled:opacity-50 min-h-[48px] md:min-h-[52px] px-6 py-3 text-sm md:text-base"
                     >
-                        <Plus className="h-4 w-4 mr-2" />
+                        <Plus className="h-4 w-4 md:h-5 md:w-5 mr-2" />
                         {(loading || isLoading) ? '保存中...' : (isEditing ? '更新' : '記録')}
                     </button>
                     {onCancel && (
                         <button
                             type="button"
                             onClick={onCancel}
-                            className="btn-secondary"
+                            className="btn-secondary min-h-[48px] md:min-h-[52px] px-6 py-3 text-sm md:text-base"
                         >
                             キャンセル
                         </button>

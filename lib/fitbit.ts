@@ -47,15 +47,43 @@ export interface FitbitBodyData {
 /**
  * アクセストークンが有効かチェックし、必要に応じてリフレッシュ
  */
-export async function ensureValidToken(tokens: FitbitTokens): Promise<FitbitTokens | null> {
+export async function ensureValidToken(tokens: FitbitTokens, userId?: string): Promise<FitbitTokens | null> {
     const now = new Date()
     const expiresAt = new Date(tokens.expires_at)
+    const timeUntilExpiry = expiresAt.getTime() - now.getTime()
+    const hoursUntilExpiry = timeUntilExpiry / (1000 * 60 * 60)
 
-    // 1時間以内に期限切れの場合はリフレッシュ
-    if (expiresAt.getTime() - now.getTime() < 60 * 60 * 1000) {
-        return await refreshFitbitToken(tokens.refresh_token)
+    console.log(`Token expiry check: expires at ${expiresAt.toISOString()}, current time ${now.toISOString()}, hours until expiry: ${hoursUntilExpiry.toFixed(2)}`)
+
+    // 既に期限切れの場合のみリフレッシュ（実際に期限切れになってから）
+    if (timeUntilExpiry <= 0) {
+        console.log('Token has expired, attempting to refresh...')
+        try {
+            const refreshedTokens = await refreshFitbitToken(tokens.refresh_token)
+            if (!refreshedTokens) {
+                // リフレッシュに失敗した場合は無効なトークンとして扱う
+                if (userId) {
+                    await invalidateFitbitToken(userId)
+                }
+                throw new Error('FITBIT_TOKEN_INVALID')
+            }
+
+            // 新しいトークンをデータベースに保存
+            if (userId) {
+                await updateFitbitToken(userId, refreshedTokens)
+            }
+
+            return refreshedTokens
+        } catch (error) {
+            if (error instanceof Error && error.message === 'FITBIT_TOKEN_INVALID' && userId) {
+                // 無効なトークンをデータベースから削除
+                await invalidateFitbitToken(userId)
+            }
+            throw error
+        }
     }
 
+    console.log('Token is still valid, no refresh needed')
     return tokens
 }
 
@@ -64,6 +92,8 @@ export async function ensureValidToken(tokens: FitbitTokens): Promise<FitbitToke
  */
 export async function refreshFitbitToken(refreshToken: string): Promise<FitbitTokens | null> {
     try {
+        console.log(`Attempting to refresh Fitbit token with refresh token: ${refreshToken.substring(0, 10)}...`)
+
         const clientId = process.env.FITBIT_CLIENT_ID
         const clientSecret = process.env.FITBIT_CLIENT_SECRET
 
@@ -86,7 +116,22 @@ export async function refreshFitbitToken(refreshToken: string): Promise<FitbitTo
         if (!response.ok) {
             const errorText = await response.text()
             console.error('Token refresh failed:', errorText)
-            return null
+
+            // invalid_grantエラーの場合は特別な処理
+            try {
+                const errorData = JSON.parse(errorText)
+                if (errorData.errors && errorData.errors.some((e: any) => e.errorType === 'invalid_grant')) {
+                    throw new Error('FITBIT_TOKEN_INVALID')
+                }
+            } catch (parseError) {
+                // JSONパースエラーの場合でも、エラーテキストに'invalid_grant'が含まれているかチェック
+                if (errorText.includes('invalid_grant')) {
+                    throw new Error('FITBIT_TOKEN_INVALID')
+                }
+            }
+
+            // その他のエラーの場合も無効なトークンとして扱う
+            throw new Error('FITBIT_TOKEN_INVALID')
         }
 
         const tokenData = await response.json()
@@ -99,7 +144,48 @@ export async function refreshFitbitToken(refreshToken: string): Promise<FitbitTo
         }
     } catch (error) {
         console.error('Token refresh error:', error)
+
+        // 無効なトークンエラーを再スロー
+        if (error instanceof Error && error.message === 'FITBIT_TOKEN_INVALID') {
+            throw error
+        }
+
         return null
+    }
+}
+
+/**
+ * 無効なFitbitトークンをデータベースから削除
+ */
+export async function invalidateFitbitToken(userId: string): Promise<void> {
+    try {
+        const { sql } = await import('@vercel/postgres')
+        await sql`
+            DELETE FROM fitbit_tokens 
+            WHERE user_id = ${userId}
+        `
+        console.log(`Invalidated Fitbit token for user ${userId}`)
+    } catch (error) {
+        console.error('Failed to invalidate Fitbit token:', error)
+    }
+}
+
+/**
+ * Fitbitトークンをデータベースに更新
+ */
+export async function updateFitbitToken(userId: string, tokens: FitbitTokens): Promise<void> {
+    try {
+        const { sql } = await import('@vercel/postgres')
+        await sql`
+            UPDATE fitbit_tokens 
+            SET access_token = ${tokens.access_token},
+                refresh_token = ${tokens.refresh_token},
+                expires_at = ${tokens.expires_at.toISOString()}
+            WHERE user_id = ${userId}
+        `
+        console.log(`Updated Fitbit token for user ${userId}, expires at ${tokens.expires_at.toISOString()}`)
+    } catch (error) {
+        console.error('Failed to update Fitbit token:', error)
     }
 }
 
@@ -118,11 +204,17 @@ export async function makeFitbitRequest(endpoint: string, accessToken: string): 
             const errorText = await response.text()
             console.error(`Fitbit API request failed for ${endpoint}:`, response.status, errorText)
 
+            // 401エラーの場合は認証エラー
+            if (response.status === 401) {
+                throw new Error('FITBIT_TOKEN_INVALID')
+            }
+
             // 429エラーの場合は特別なエラーメッセージを投げる
             if (response.status === 429) {
                 throw new Error(`429 Rate limit exceeded for ${endpoint}`)
             }
 
+            // その他のHTTPエラー
             throw new Error(`HTTP ${response.status}: ${errorText}`)
         }
 

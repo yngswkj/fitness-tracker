@@ -10,28 +10,40 @@ export async function GET(request: NextRequest) {
         }
 
         const clientId = process.env.HEALTHPLANET_CLIENT_ID
-        const redirectUri = process.env.HEALTHPLANET_REDIRECT_URI
+        const isDevelopment = process.env.NODE_ENV === 'development'
 
-        // デバッグログ
+        // 開発環境では公式fallback URLを使用
+        const redirectUri = isDevelopment
+            ? 'https://www.healthplanet.jp/success.html'
+            : process.env.HEALTHPLANET_REDIRECT_URI
+
         console.log('HealthPlanet Auth Debug:')
+        console.log('Environment:', process.env.NODE_ENV)
         console.log('Client ID:', clientId)
         console.log('Redirect URI:', redirectUri)
+        console.log('Is Development:', isDevelopment)
 
-        if (!clientId || !redirectUri) {
+        if (!clientId) {
             return NextResponse.json(
-                { error: 'HealthPlanet credentials not configured' },
+                { error: 'HealthPlanet client ID not configured' },
                 { status: 500 }
             )
         }
 
-        // 認証用のstateパラメータを生成（セキュリティのため）
+        if (!isDevelopment && !process.env.HEALTHPLANET_REDIRECT_URI) {
+            return NextResponse.json(
+                { error: 'HealthPlanet redirect URI not configured for production' },
+                { status: 500 }
+            )
+        }
+
+        // 認証用のstateパラメータを生成（開発環境フラグを追加）
         const state = Buffer.from(JSON.stringify({
             userId: session.user.id,
-            timestamp: Date.now()
+            timestamp: Date.now(),
+            isDevelopment // 開発環境フラグを追加
         })).toString('base64')
 
-        // HealthPlanet APIの正しい認証エンドポイントを使用
-        // 公式ドキュメントに基づいて修正
         const authUrl = 'https://www.healthplanet.jp/oauth/auth' +
             '?client_id=' + encodeURIComponent(clientId) +
             '&redirect_uri=' + encodeURIComponent(redirectUri) +
@@ -39,26 +51,18 @@ export async function GET(request: NextRequest) {
             '&response_type=' + encodeURIComponent('code') +
             '&state=' + encodeURIComponent(state)
 
-        // 生成されたURLをログ出力
         console.log('Generated Auth URL:', authUrl)
-        console.log('URL Parameters:')
-        console.log('- client_id:', clientId)
-        console.log('- redirect_uri:', redirectUri)
-        console.log('- scope: innerscan')
-        console.log('- response_type: code')
-        console.log('- state:', state)
-
-        // URLの長さとエンコーディングを確認
-        console.log('URL Length:', authUrl.length)
-        console.log('Encoded Redirect URI:', encodeURIComponent(redirectUri))
 
         return NextResponse.json({
             authUrl: authUrl,
-            debug: {
-                clientId,
-                redirectUri,
-                urlLength: authUrl.length
-            }
+            isDevelopment,
+            manualCodeRequired: isDevelopment,
+            state: state, // フロントエンドで手動コード処理に使用
+            instructions: isDevelopment ? [
+                '1. 上記URLでHealthPlanet認証を完了',
+                '2. success.htmlページのURL末尾からcode=の値をコピー',
+                '3. 下の入力欄にコードを貼り付けて「連携完了」をクリック'
+            ] : undefined
         })
 
     } catch (error) {

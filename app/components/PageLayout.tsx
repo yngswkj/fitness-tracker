@@ -50,7 +50,7 @@ export default function PageLayout({
     }
 
     return (
-        <div className="min-h-screen bg-gray-50">
+        <div className="min-h-screen bg-gray-50 pb-16 md:pb-0">
             <Navigation />
             <PageHeader
                 title={title}
