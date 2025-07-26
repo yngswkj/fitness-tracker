@@ -4,7 +4,6 @@ import { useState, useEffect } from 'react'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import PageLayout from '../components/PageLayout'
-import FitbitSyncProgress from '../components/FitbitSyncProgress'
 import {
     LineChart,
     Line,
@@ -83,6 +82,7 @@ export default function ActivityPage() {
     const [fitbitData, setFitbitData] = useState<FitbitData[]>([])
     const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null)
     const [loading, setLoading] = useState(true)
+    const [syncing, setSyncing] = useState(false)
 
     const [selectedPeriod, setSelectedPeriod] = useState('7')
 
@@ -180,6 +180,28 @@ export default function ActivityPage() {
         return { from, to }
     }
 
+    const handleSync = async () => {
+        setSyncing(true)
+        try {
+            const response = await fetch('/api/fitbit/sync', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ date: new Date().toISOString().split('T')[0] })
+            })
+
+            if (response.ok) {
+                await fetchData()
+            } else {
+                const error = await response.json()
+                alert(`Sync failed: ${error.error}`)
+            }
+        } catch (error) {
+            console.error('Sync error:', error)
+            alert('Sync failed. Please try again.')
+        } finally {
+            setSyncing(false)
+        }
+    }
 
 
     const formatChartData = () => {
@@ -577,7 +599,14 @@ export default function ActivityPage() {
                 <option value="180">Last 180 days</option>
                 <option value="365">Last 365 days</option>
             </select>
-            <FitbitSyncProgress onSyncComplete={fetchData} />
+            <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync Now'}
+            </button>
         </>
     )
 
@@ -1166,7 +1195,14 @@ export default function ActivityPage() {
                     <p className="text-gray-600 mb-6">
                         Connect your Fitbit account and sync your data to see your activity dashboard.
                     </p>
-                    <FitbitSyncProgress onSyncComplete={fetchData} />
+                    <button
+                onClick={handleSync}
+                disabled={syncing}
+                className="flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+                <RefreshCw className={`w-4 h-4 ${syncing ? 'animate-spin' : ''}`} />
+                {syncing ? 'Syncing...' : 'Sync Now'}
+            </button>
                 </div>
             )}
         </PageLayout>
