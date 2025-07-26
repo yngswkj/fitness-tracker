@@ -253,11 +253,14 @@ export default function ActivityPage() {
                     date: formattedDate,
                     originalDate: dateStr,
                     steps: actualItem.steps || 0,
-                    calories: actualItem.calories_burned || 0,
+                    // カロリーは0の場合はnullに設定（足切り）
+                    calories: (actualItem.calories_burned && actualItem.calories_burned > 0) ? actualItem.calories_burned : null,
                     distance: actualItem.distance_km || 0,
-                    activeMinutes: actualItem.active_minutes || 0,
+                    // アクティブ分数は0の場合はnullに設定（足切り）
+                    activeMinutes: (actualItem.active_minutes && actualItem.active_minutes > 0) ? actualItem.active_minutes : null,
                     sleepHours: actualItem.sleep_hours || 0,
-                    heartRate: actualItem.resting_heart_rate || 0,
+                    // 心拍数は0やnullの場合はnullに設定（足切り）
+                    heartRate: (actualItem.resting_heart_rate && actualItem.resting_heart_rate > 0) ? actualItem.resting_heart_rate : null,
                     weight: actualItem.weight,
                     bodyFat: actualItem.body_fat,
                     hasValidData: true,
@@ -492,6 +495,52 @@ export default function ActivityPage() {
         return { weight: weightDomain, bodyFat: bodyFatDomain }
     }
 
+    // Active Minutes & Caloriesグラフ用の同期化された軸範囲計算
+    const calculateActivitySynchronizedAxisDomains = (data: any[]) => {
+        // 有効なデータのみから値を抽出
+        const validData = data.filter(item => !item.isMissing)
+        const activeMinutesValues = validData.map(item => item.activeMinutes).filter(val => val != null && !isNaN(val) && val > 0)
+        const caloriesValues = validData.map(item => item.calories).filter(val => val != null && !isNaN(val) && val > 0)
+
+        if (activeMinutesValues.length === 0 && caloriesValues.length === 0) {
+            return { activeMinutes: [0, 100], calories: [0, 3000] }
+        }
+
+        // 各データの範囲を計算
+        const activeMinutesMin = activeMinutesValues.length > 0 ? Math.min(...activeMinutesValues) : 0
+        const activeMinutesMax = activeMinutesValues.length > 0 ? Math.max(...activeMinutesValues) : 100
+        const caloriesMin = caloriesValues.length > 0 ? Math.min(...caloriesValues) : 0
+        const caloriesMax = caloriesValues.length > 0 ? Math.max(...caloriesValues) : 3000
+
+        // 変化率を計算（左右軸の比率を同じにするため）
+        const activeMinutesRange = activeMinutesMax - activeMinutesMin
+        const caloriesRange = caloriesMax - caloriesMin
+
+        // 変化率を同じにするため、range/baseRatioで正規化
+        const activeMinutesBaseRatio = activeMinutesRange / (activeMinutesMin || 1)
+        const caloriesBaseRatio = caloriesRange / (caloriesMin || 1)
+
+        // より大きな変化率に合わせて調整
+        const maxRatio = Math.max(activeMinutesBaseRatio, caloriesBaseRatio, 0.2) // 最小20%の変化は保証
+
+        // 同じ比率で軸を設定
+        const activeMinutesPadding = (activeMinutesMin || 30) * maxRatio * 0.1 // 10%のpadding
+        const caloriesPadding = (caloriesMin || 2000) * maxRatio * 0.1
+
+        // キリの良い数字に調整
+        const activeMinutesDomain = [
+            Math.max(0, Math.floor((activeMinutesMin - activeMinutesPadding) / 10) * 10),
+            Math.ceil((activeMinutesMax + activeMinutesPadding) / 10) * 10
+        ]
+
+        const caloriesDomain = [
+            Math.max(0, Math.floor((caloriesMin - caloriesPadding) / 200) * 200),
+            Math.ceil((caloriesMax + caloriesPadding) / 200) * 200
+        ]
+
+        return { activeMinutes: activeMinutesDomain, calories: caloriesDomain }
+    }
+
     // Y軸の目盛り数を計算する関数
     const calculateTickCount = (domain: number[]) => {
         const range = domain[1] - domain[0]
@@ -507,19 +556,9 @@ export default function ActivityPage() {
         
         if (!payload) return null
         
-        // 欠落データの場合はグレーの点を表示
+        // 欠落データの場合は何も描画しない（不要なプロットを除去）
         if (payload.isMissing) {
-            return (
-                <circle
-                    cx={cx}
-                    cy={cy}
-                    r={3}
-                    fill="#9ca3af"
-                    stroke="#6b7280"
-                    strokeWidth={1}
-                    opacity={0.7}
-                />
-            )
+            return null
         }
         
         // データが存在する場合の処理
@@ -760,8 +799,26 @@ export default function ActivityPage() {
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                         <XAxis dataKey="date" />
                                         <YAxis
-                                            domain={calculateYAxisDomain(stepsData, 'steps')}
-                                            tickCount={calculateTickCount(calculateYAxisDomain(stepsData, 'steps'))}
+                                            domain={[0, 'dataMax']}
+                                            ticks={(() => {
+                                                const validSteps = stepsData.filter(item => !item.isMissing).map(item => item.steps || 0)
+                                                if (validSteps.length === 0) {
+                                                    return [0, 2000, 4000, 6000, 8000, 10000]
+                                                }
+                                                const minSteps = Math.min(...validSteps)
+                                                const maxSteps = Math.max(...validSteps)
+                                                const interval = 2000
+                                                // 最小値を2000の倍数に切り下げ（最低0）
+                                                const minTick = Math.max(0, Math.floor(minSteps / interval) * interval)
+                                                // 最大値を2000の倍数に切り上げ
+                                                const maxTick = Math.ceil(maxSteps / interval) * interval
+                                                const ticks = []
+                                                for (let i = minTick; i <= maxTick; i += interval) {
+                                                    ticks.push(i)
+                                                }
+                                                return ticks
+                                            })()}
+                                            tick={{ fontSize: 12 }}
                                             tickFormatter={(value) => Math.round(Number(value)).toLocaleString()}
                                         />
                                         <Tooltip formatter={(value) => [
@@ -824,9 +881,40 @@ export default function ActivityPage() {
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                         <XAxis dataKey="date" />
                                         <YAxis
-                                            domain={calculateYAxisDomain(heartRateData, 'heartRate')}
-                                            tickCount={calculateTickCount(calculateYAxisDomain(heartRateData, 'heartRate'))}
-                                            tickFormatter={(value) => Math.round(Number(value)).toString()}
+                                            domain={(() => {
+                                                const validHeartRates = heartRateData.filter(item => !item.isMissing && item.heartRate && item.heartRate > 0).map(item => item.heartRate)
+                                                if (validHeartRates.length === 0) {
+                                                    return [50, 100]
+                                                }
+                                                const minRate = Math.min(...validHeartRates)
+                                                const maxRate = Math.max(...validHeartRates)
+                                                const interval = 5
+                                                // 最小値を5の倍数に切り下げ
+                                                const minTick = Math.floor(minRate / interval) * interval
+                                                // 最大値を5の倍数に切り上げ
+                                                const maxTick = Math.ceil(maxRate / interval) * interval
+                                                return [minTick, maxTick]
+                                            })()}
+                                            ticks={(() => {
+                                                const validHeartRates = heartRateData.filter(item => !item.isMissing && item.heartRate && item.heartRate > 0).map(item => item.heartRate)
+                                                if (validHeartRates.length === 0) {
+                                                    return [50, 55, 60, 65, 70, 75, 80, 85, 90, 95, 100]
+                                                }
+                                                const minRate = Math.min(...validHeartRates)
+                                                const maxRate = Math.max(...validHeartRates)
+                                                const interval = 5
+                                                // 最小値を5の倍数に切り下げ
+                                                const minTick = Math.floor(minRate / interval) * interval
+                                                // 最大値を5の倍数に切り上げ
+                                                const maxTick = Math.ceil(maxRate / interval) * interval
+                                                const ticks = []
+                                                for (let i = minTick; i <= maxTick; i += interval) {
+                                                    ticks.push(i)
+                                                }
+                                                return ticks
+                                            })()}
+                                            tick={{ fontSize: 12 }}
+                                            tickFormatter={(value) => `${Math.round(Number(value))}`}
                                         />
                                         <Tooltip formatter={(value) => [
                                             typeof value === 'number' ? Math.round(value) : Math.round(Number(value) || 0),
@@ -889,17 +977,29 @@ export default function ActivityPage() {
                                         <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                                         <XAxis dataKey="date" />
                                         <YAxis
-                                            domain={calculateYAxisDomain(sleepData, 'sleepHours')}
-                                            tickCount={calculateTickCount(calculateYAxisDomain(sleepData, 'sleepHours'))}
+                                            domain={[0, 'dataMax']}
+                                            ticks={(() => {
+                                                const validSleepHours = sleepData.filter(item => !item.isMissing && item.sleepHours > 0).map(item => item.sleepHours)
+                                                if (validSleepHours.length === 0) {
+                                                    return [0, 2, 4, 6, 8, 10, 12]
+                                                }
+                                                const minSleep = Math.min(...validSleepHours)
+                                                const maxSleep = Math.max(...validSleepHours)
+                                                const interval = 2
+                                                // 最小値を2の倍数に切り下げ（最低0）
+                                                const minTick = Math.max(0, Math.floor(minSleep / interval) * interval)
+                                                // 最大値を2の倍数に切り上げ
+                                                const maxTick = Math.ceil(maxSleep / interval) * interval
+                                                const ticks = []
+                                                for (let i = minTick; i <= maxTick; i += interval) {
+                                                    ticks.push(i)
+                                                }
+                                                return ticks
+                                            })()}
+                                            tick={{ fontSize: 12 }}
                                             tickFormatter={(value: any) => {
                                                 const numValue = typeof value === 'number' ? value : parseFloat(String(value)) || 0
-                                                const hours = Math.floor(numValue)
-                                                const minutes = Math.round((numValue - hours) * 60)
-                                                if (minutes === 0) {
-                                                    return `${hours}h`
-                                                } else {
-                                                    return `${hours}h${minutes}m`
-                                                }
+                                                return `${numValue}h`
                                             }}
                                         />
                                         <Tooltip formatter={(value: any) => {
@@ -991,10 +1091,19 @@ export default function ActivityPage() {
                                             yAxisId="left"
                                             domain={weightDomain}
                                             ticks={(() => {
+                                                const validWeights = weightData.filter(item => !item.isMissing && item.weight > 0).map(item => item.weight)
+                                                if (validWeights.length === 0) {
+                                                    return [60, 65, 70, 75, 80, 85, 90]
+                                                }
+                                                const minWeight = Math.min(...validWeights)
+                                                const maxWeight = Math.max(...validWeights)
+                                                const interval = 1
+                                                // 最小値を1kgの倍数に切り下げ
+                                                const minTick = Math.floor(minWeight / interval) * interval
+                                                // 最大値を1kgの倍数に切り上げ
+                                                const maxTick = Math.ceil(maxWeight / interval) * interval
                                                 const ticks = []
-                                                const start = Math.floor(weightDomain[0])
-                                                const end = Math.ceil(weightDomain[1])
-                                                for (let i = start; i <= end; i++) {
+                                                for (let i = minTick; i <= maxTick; i += interval) {
                                                     ticks.push(i)
                                                 }
                                                 return ticks
@@ -1007,10 +1116,19 @@ export default function ActivityPage() {
                                             orientation="right"
                                             domain={bodyFatDomain}
                                             ticks={(() => {
+                                                const validBodyFats = weightData.filter(item => !item.isMissing && item.bodyFat > 0).map(item => item.bodyFat)
+                                                if (validBodyFats.length === 0) {
+                                                    return [10, 12, 14, 16, 18, 20, 22, 24, 26, 28, 30]
+                                                }
+                                                const minBodyFat = Math.min(...validBodyFats)
+                                                const maxBodyFat = Math.max(...validBodyFats)
+                                                const interval = 0.5
+                                                // 最小値を0.5%の倍数に切り下げ
+                                                const minTick = Math.floor(minBodyFat / interval) * interval
+                                                // 最大値を0.5%の倍数に切り上げ
+                                                const maxTick = Math.ceil(maxBodyFat / interval) * interval
                                                 const ticks = []
-                                                const start = Math.floor(bodyFatDomain[0] * 2) / 2
-                                                const end = Math.ceil(bodyFatDomain[1] * 2) / 2
-                                                for (let i = start; i <= end; i += 0.5) {
+                                                for (let i = minTick; i <= maxTick; i += interval) {
                                                     ticks.push(Math.round(i * 10) / 10)
                                                 }
                                                 return ticks
@@ -1071,6 +1189,9 @@ export default function ActivityPage() {
                         const activityData = getFilteredChartData('activity')
                         const activeMinutesStats = calculateStats(activityData, 'activeMinutes')
                         const caloriesStats = calculateStats(activityData, 'calories')
+                        const syncedActivityDomains = calculateActivitySynchronizedAxisDomains(activityData)
+                        const activeMinutesDomain = syncedActivityDomains.activeMinutes
+                        const caloriesDomain = syncedActivityDomains.calories
                         return (
                             <>
                                 <div className="grid grid-cols-2 gap-6 mb-4">
@@ -1115,15 +1236,85 @@ export default function ActivityPage() {
                                         <XAxis dataKey="date" />
                                         <YAxis
                                             yAxisId="left"
-                                            domain={calculateYAxisDomain(activityData, 'activeMinutes')}
-                                            tickCount={calculateTickCount(calculateYAxisDomain(activityData, 'activeMinutes'))}
-                                            tickFormatter={(value) => Math.round(Number(value)).toString()}
+                                            domain={(() => {
+                                                const validActiveMinutes = activityData.filter(item => !item.isMissing && item.activeMinutes && item.activeMinutes > 0).map(item => item.activeMinutes)
+                                                if (validActiveMinutes.length === 0) {
+                                                    return [0, 180]
+                                                }
+                                                const minMinutes = Math.min(...validActiveMinutes)
+                                                const maxMinutes = Math.max(...validActiveMinutes)
+                                                const interval = 30
+                                                // 最小値を30分の倍数に切り下げ（最低0）
+                                                const minTick = Math.max(0, Math.floor(minMinutes / interval) * interval)
+                                                // 最大値を30分の倍数に切り上げ
+                                                const maxTick = Math.ceil(maxMinutes / interval) * interval
+                                                // 左軸の補助線数を一定にするため、最低でも6本（180分まで）は表示
+                                                const endTick = Math.max(maxTick, 180)
+                                                return [minTick, endTick]
+                                            })()}
+                                            ticks={(() => {
+                                                const validActiveMinutes = activityData.filter(item => !item.isMissing && item.activeMinutes && item.activeMinutes > 0).map(item => item.activeMinutes)
+                                                if (validActiveMinutes.length === 0) {
+                                                    return [0, 30, 60, 90, 120, 150, 180]
+                                                }
+                                                const minMinutes = Math.min(...validActiveMinutes)
+                                                const maxMinutes = Math.max(...validActiveMinutes)
+                                                const interval = 30
+                                                // 最小値を30分の倍数に切り下げ（最低0）
+                                                const minTick = Math.max(0, Math.floor(minMinutes / interval) * interval)
+                                                // 最大値を30分の倍数に切り上げ
+                                                const maxTick = Math.ceil(maxMinutes / interval) * interval
+                                                // 左軸の補助線数を一定にするため、最低でも6本（180分まで）は表示
+                                                const endTick = Math.max(maxTick, 180)
+                                                const ticks = []
+                                                for (let i = minTick; i <= endTick; i += interval) {
+                                                    ticks.push(i)
+                                                }
+                                                return ticks
+                                            })()}
+                                            tick={{ fontSize: 12 }}
+                                            tickFormatter={(value) => `${Math.round(Number(value))}`}
                                         />
                                         <YAxis
                                             yAxisId="right"
                                             orientation="right"
-                                            domain={calculateYAxisDomain(activityData, 'calories')}
-                                            tickCount={calculateTickCount(calculateYAxisDomain(activityData, 'calories'))}
+                                            domain={(() => {
+                                                const validCalories = activityData.filter(item => !item.isMissing && item.calories && item.calories > 0).map(item => item.calories)
+                                                if (validCalories.length === 0) {
+                                                    return [0, 4000]
+                                                }
+                                                const minCalories = Math.min(...validCalories)
+                                                const maxCalories = Math.max(...validCalories)
+                                                const interval = 500
+                                                // 最小値を500kcalの倍数に切り下げ（最低0）
+                                                const minTick = Math.max(0, Math.floor(minCalories / interval) * interval)
+                                                // 最大値を500kcalの倍数に切り上げ
+                                                const maxTick = Math.ceil(maxCalories / interval) * interval
+                                                // 右軸の補助線数を一定にするため、最低でも8本（4000kcalまで）は表示
+                                                const endTick = Math.max(maxTick, 4000)
+                                                return [minTick, endTick]
+                                            })()} 
+                                            ticks={(() => {
+                                                const validCalories = activityData.filter(item => !item.isMissing && item.calories && item.calories > 0).map(item => item.calories)
+                                                if (validCalories.length === 0) {
+                                                    return [0, 500, 1000, 1500, 2000, 2500, 3000, 3500, 4000]
+                                                }
+                                                const minCalories = Math.min(...validCalories)
+                                                const maxCalories = Math.max(...validCalories)
+                                                const interval = 500
+                                                // 最小値を500kcalの倍数に切り下げ（最低0）
+                                                const minTick = Math.max(0, Math.floor(minCalories / interval) * interval)
+                                                // 最大値を500kcalの倍数に切り上げ
+                                                const maxTick = Math.ceil(maxCalories / interval) * interval
+                                                // 右軸の補助線数を一定にするため、最低でも8本（4000kcalまで）は表示
+                                                const endTick = Math.max(maxTick, 4000)
+                                                const ticks = []
+                                                for (let i = minTick; i <= endTick; i += interval) {
+                                                    ticks.push(i)
+                                                }
+                                                return ticks
+                                            })()}
+                                            tick={{ fontSize: 12 }}
                                             tickFormatter={(value) => Math.round(Number(value)).toLocaleString()}
                                         />
                                         <Tooltip formatter={(value, name) => {
